@@ -17,8 +17,6 @@
   :author "Eitaro Fukamachi"
   :license "MIT"
   :depends-on (:cl-async
-               :puri
-               :do-urlencode
                :fast-http
                :fast-io
                :chunga
