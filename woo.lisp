@@ -3,15 +3,24 @@
   (:nicknames :clack.handler.woo)
   (:use :cl)
   (:import-from :fast-http
-                :make-parser
-                :make-http-request
+                :make-ll-parser
+                :make-ll-callbacks
                 :make-http-response
+                :parser-method
+                :parser-http-major
+                :parser-http-minor
+                :http-parse
                 :http-unparse
-                :http-resource
-                :http-method
-                :http-version
-                :http-body
                 :parsing-error)
+  (:import-from :fast-http.subseqs
+                :byte-vector-subseqs-to-string
+                :make-byte-vector-subseq)
+  (:import-from :fast-http.byte-vector
+                :ascii-octets-to-upper-string
+                :byte-to-ascii-upper)
+  (:import-from :fast-http.util
+                :number-string-p
+                :make-collector)
   (:import-from :puri
                 :parse-uri-string)
   (:import-from :do-urlencode
@@ -23,6 +32,8 @@
                 :socket-data
                 :close-socket)
   (:import-from :fast-io
+                :make-output-buffer
+                :finish-output-buffer
                 :with-fast-output
                 :fast-write-byte
                 :fast-write-sequence)
@@ -61,14 +72,16 @@
                                   (as:tcp-eof ())
                                   (as:tcp-error ()
                                    (log:error (princ-to-string event)))
-                                  (T
+                                  (as:tcp-info
                                    (log:info (princ-to-string event))
                                    (let ((socket (as:tcp-socket event)))
                                      (write-response-headers socket 500 ())
                                      (as:write-socket-data socket "Internal Server Error"
                                                            :write-cb (lambda (socket)
                                                                        (setf (as:socket-data socket) nil)
-                                                                       (as:close-socket socket)))))))
+                                                                       (as:close-socket socket)))))
+                                  (T
+                                   (log:info event))))
                               :connect-cb (lambda (socket) (setup-parser socket app debug)))
                (bt:release-lock server-started-lock))))
       (prog1
@@ -90,38 +103,142 @@
         (write-response-headers socket 500 ())
         (finish-response socket #.(babel:string-to-octets "Internal Server Error"))))))
 
+(defun canonicalize-header-field (data start end)
+  (let ((byte (aref data start)))
+    (if (or (= byte #.(char-code #\C))
+            (= byte #.(char-code #\R))
+            (= byte #.(char-code #\S))
+            (= byte #.(char-code #\c))
+            (= byte #.(char-code #\r))
+            (= byte #.(char-code #\s)))
+        (let ((field
+                (intern (ascii-octets-to-upper-string data :start start :end end)
+                        :keyword)))
+          (if (find field '(:content-length
+                            :content-type
+                            :connection
+                            :request-method
+                            :script-name
+                            :path-info
+                            :server-name
+                            :server-port
+                            :server-protocol
+                            :request-uri
+                            :remote-addr
+                            :remote-port
+                            :query-string))
+              field
+              (intern (format nil "HTTP-~:@(~A~)" field) :keyword)))
+        ;; This must be a custom header
+        (let ((string (make-string (+ 5 (- end start)) :element-type 'character)))
+          (loop for i from 0
+                for char across "HTTP-"
+                do (setf (aref string i) char))
+          (do ((i 5 (1+ i))
+               (j start (1+ j)))
+              ((= j end) (intern string :keyword))
+            (setf (aref string i)
+                  (code-char (byte-to-ascii-upper (aref data j)))))))))
+
+;; Using Low-level parser of fast-http
 (defun setup-parser (socket app debug)
-  (let ((http (make-http-request))
-        headers env
-        (body-buffer (fast-io::make-output-buffer)))
-    (setf (getf (as:socket-data socket) :parser)
-          (make-parser http
-                       :header-callback
-                       (lambda (headers-plist)
-                         (setq headers headers-plist
-                               env (handle-request http headers-plist socket)))
-                       :body-callback
-                       (lambda (data)
-                         (fast-io:fast-write-sequence data body-buffer))
-                       :finish-callback
-                       (lambda ()
-                         (setf env
-                               (nconc (list :raw-body
-                                            (flex:make-in-memory-input-stream (fast-io::finish-output-buffer body-buffer)))
-                                      env))
-                         (handle-response
-                          socket
-                          (if debug
-                              (funcall app env)
-                              (if-let (res (handler-case (funcall app env)
-                                             (error (error)
-                                               (princ error *error-output*)
-                                               nil)))
-                                res
-                                '(500 nil nil)))
-                          headers
-                          app
-                          debug))))))
+  (let (headers env
+        (body-buffer (fast-io::make-output-buffer))
+
+        parsing-host-p
+
+        resource
+        method
+        version
+        host
+        (headers-collector (make-collector))
+        (header-value-collector nil)
+        (current-len 0)
+
+        completedp
+
+        (parser (make-ll-parser :type :request))
+        callbacks)
+    (flet ((collect-prev-header-value ()
+             (when header-value-collector
+               (let* ((header-value
+                        (byte-vector-subseqs-to-string
+                         (funcall header-value-collector)
+                         current-len))
+                      (header-value
+                        (if (number-string-p header-value)
+                            (read-from-string header-value)
+                            header-value)))
+                 (when parsing-host-p
+                   (setq host header-value
+                         parsing-host-p nil))
+                 (funcall headers-collector header-value)))))
+      (setq callbacks
+            (make-ll-callbacks
+             :url (lambda (parser data start end)
+                    (declare (ignore parser))
+                    ;; TODO: Can be more efficient
+                    (setq resource (babel:octets-to-string data :start start :end end)))
+             :header-field (lambda (parser data start end)
+                             (declare (ignore parser)
+                                      (type (simple-array (unsigned-byte 8) (*)) data))
+                             (collect-prev-header-value)
+                             (setq header-value-collector (make-collector))
+                             (setq current-len 0)
+
+                             (let ((field (canonicalize-header-field data start end)))
+                               (when (eq field :host)
+                                 (setq parsing-host-p t))
+                               (funcall headers-collector field)))
+             :header-value (lambda (parser data start end)
+                             (declare (ignore parser)
+                                      (type (simple-array (unsigned-byte 8) (*)) data))
+                             (incf current-len (- end start))
+                             (funcall header-value-collector
+                                      (make-byte-vector-subseq data start end)))
+             :headers-complete (lambda (parser)
+                                 (collect-prev-header-value)
+                                 (setq version
+                                       (intern (format nil "HTTP/~A.~A"
+                                                       (parser-http-major parser)
+                                                       (parser-http-minor parser))
+                                               :keyword))
+                                 (setq method (parser-method parser))
+                                 (setq headers (funcall headers-collector))
+                                 (setq env (handle-request method resource version host headers socket))
+                                 (setq headers-collector nil
+                                       header-value-collector nil))
+             :body (lambda (parser data start end)
+                     (declare (ignore parser)
+                              (type (simple-array (unsigned-byte 8) (*)) data))
+                     (do ((i start (1+ i)))
+                         ((= i end))
+                       (fast-write-byte (aref data i) body-buffer)))
+             :message-complete (lambda (parser)
+                                 (declare (ignore parser))
+                                 (collect-prev-header-value)
+                                 (setq completedp t))))
+      (setf (getf (as:socket-data socket) :parser)
+            (lambda (data)
+              (http-parse parser callbacks data)
+              (when completedp
+                (setq env
+                      (nconc (list :raw-body
+                                   (flex:make-in-memory-input-stream
+                                    (fast-io::finish-output-buffer body-buffer)))
+                             env))
+                (handle-response socket
+                                 (if debug
+                                     (funcall app env)
+                                     (if-let (res (handler-case (funcall app env)
+                                                    (error (error)
+                                                      (princ error *error-output*)
+                                                      nil)))
+                                       res
+                                       '(500 nil nil)))
+                                 headers
+                                 app
+                                 debug)))))))
 
 (defun stop (server)
   (if (bt:threadp server)
@@ -144,52 +261,30 @@
                   (read-from-string port))
           (values host nil)))))
 
-(defun handle-request (http headers socket)
-  (let ((host (getf headers :host)))
-    (multiple-value-bind (server-name server-port)
-        (parse-host-header host)
-      (multiple-value-bind (scheme host port path query)
-          (puri::parse-uri-string (http-resource http))
-        (declare (ignore scheme host port))
-        (nconc
-         (list :request-method (http-method http)
-               :script-name ""
-               :server-name server-name
-               :server-port (or server-port 80)
-               :server-protocol (intern (format nil "HTTP/~F" (http-version http)) :keyword)
-               :path-info (do-urlencode:urldecode path :lenientp t)
-               :query-string query
-               :url-scheme :http
-               :request-uri (http-resource http)
-               :content-length (getf headers :content-length)
-               :content-type (getf headers :content-type)
-               :clack.streaming t
-               :clack.nonblocking t
-               :clack.io socket)
+(defun handle-request (method resource version host headers socket)
+  (multiple-value-bind (server-name server-port)
+      (if host
+          (parse-host-header host)
+          (values nil nil))
+    (multiple-value-bind (scheme host port path query)
+        (puri::parse-uri-string resource)
+      (declare (ignore scheme host port))
+      (nconc
+       (list :request-method method
+             :script-name ""
+             :server-name server-name
+             :server-port (or server-port 80)
+             :server-protocol version
+             :path-info (do-urlencode:urldecode path :lenientp t)
+             :query-string query
+             :url-scheme :http
+             :request-uri resource
+             :clack.streaming t
+             :clack.nonblocking t
+             :clack.io socket)
 
-         (loop with env-hash = (make-hash-table :test 'eq)
-               for (key val) on headers by #'cddr
-               unless (find key '(:request-method
-                                  :script-name
-                                  :path-info
-                                  :server-name
-                                  :server-port
-                                  :server-protocol
-                                  :request-uri
-                                  :remote-addr
-                                  :remote-port
-                                  :query-string
-                                  :content-length
-                                  :content-type
-                                  :connection))
-                 do
-                    (let ((key (intern (format nil "HTTP-~:@(~A~)" key) :keyword)))
-                      (if (gethash key env-hash)
-                          (setf (gethash key env-hash)
-                                (concatenate 'string (gethash key env-hash) ", " val))
-                          (setf (gethash key env-hash) val)))
-               finally
-                  (return (hash-table-plist env-hash))))))))
+       ;; FIXME: Concat duplicate headers with a comma.
+       headers))))
 
 
 ;;
