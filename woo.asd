@@ -25,7 +25,9 @@
                :bordeaux-threads
                :log4cl
                :alexandria)
-  :components ((:file "woo"))
+  :components ((:module "src"
+                :components
+                ((:file "woo"))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
   #.(with-open-file (stream (merge-pathnames
