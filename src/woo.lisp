@@ -31,7 +31,14 @@
                 :socket-closed
                 :write-socket-data
                 :socket-data
-                :close-socket)
+                :close-socket
+                :with-event-loop
+                :tcp-server
+                :close-tcp-server
+                :tcp-info
+                :tcp-error
+                :tcp-eof
+                :tcp-socket)
   (:import-from :fast-io
                 :make-output-buffer
                 :finish-output-buffer
