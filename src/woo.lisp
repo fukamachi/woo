@@ -2,29 +2,32 @@
 (defpackage woo
   (:nicknames :clack.handler.woo)
   (:use :cl)
+  (:import-from :woo.response
+                :*empty-chunk*
+                :write-response-headers
+                :start-chunked-response
+                :finish-response)
+  (:import-from :woo.url
+                :url-decode
+                :parse-url)
   (:import-from :fast-http
                 :make-ll-parser
                 :make-ll-callbacks
-                :make-http-response
                 :parser-method
                 :parser-http-major
                 :parser-http-minor
                 :http-parse
-                :http-unparse
                 :parsing-error)
   (:import-from :fast-http.subseqs
                 :byte-vector-subseqs-to-string
                 :make-byte-vector-subseq)
   (:import-from :fast-http.byte-vector
                 :ascii-octets-to-upper-string
-                :byte-to-ascii-upper
-                :digit-byte-char-p
-                :digit-byte-char-to-integer)
+                :byte-to-ascii-upper)
   (:import-from :fast-http.util
                 :number-string-p
                 :make-collector)
   (:import-from :cl-async
-                :async-io-stream
                 :socket-closed
                 :write-socket-data
                 :socket-data
@@ -35,11 +38,9 @@
                 :with-fast-output
                 :fast-write-byte
                 :fast-write-sequence)
-  (:import-from :chunga
-                :make-chunked-stream
-                :chunked-stream-output-chunking-p)
   (:import-from :babel
-                :string-to-octets)
+                :string-to-octets
+                :octets-to-string)
   (:import-from :flexi-streams
                 :make-in-memory-output-stream)
   (:import-from :bordeaux-threads
@@ -273,90 +274,6 @@
                   (read-from-string port))
           (values host nil)))))
 
-(define-condition url-decoding-error (simple-error) ())
-
-(defun url-decode (path-bytes start end)
-  (declare (type (simple-array (unsigned-byte 8) (*)) path-bytes))
-  (let* ((p start)
-         (byte (aref path-bytes p))
-         (parsing-encoded-part nil))
-    (handler-case
-        (with-fast-output (buffer :vector)
-          (macrolet ((go-state (tag)
-                         `(progn
-                            (incf p)
-                            (when (= p end)
-                              (go exit))
-                            (setq byte (aref path-bytes p))
-                            (go ,tag))))
-            (tagbody
-             start
-               (cond
-                 ((= byte #.(char-code #\%))
-                  (go-state parse-encoded-part))
-                 ((= byte #.(char-code #\+))
-                  (fast-write-byte #.(char-code #\Space) buffer))
-                 (T (fast-write-byte byte buffer)))
-               (go-state start)
-
-             parse-encoded-part
-               (setq parsing-encoded-part
-                     (* 16 (cond
-                             ((digit-byte-char-p byte)
-                              (digit-byte-char-to-integer byte))
-                             ((<= 65 byte 69)
-                              (- byte 55))
-                             (T (error 'url-decoding-error)))))
-               (go-state parse-encoded-part-second)
-
-             parse-encoded-part-second
-               (fast-write-byte
-                (+ parsing-encoded-part
-                   (cond
-                     ((digit-byte-char-p byte)
-                      (digit-byte-char-to-integer byte))
-                     ((<= 65 byte 69)
-                      (- byte 55))
-                     (T (error 'url-decoding-error))))
-                buffer)
-               (setq parsing-encoded-part nil)
-               (go-state start)
-
-             exit
-               (when parsing-encoded-part ;; EOF
-                 (error 'url-decoding-error)))))
-      (url-decoding-error ()
-        (return-from url-decode path-bytes)))))
-
-(defun parse-url (url-bytes start end)
-  (declare (type (simple-array (unsigned-byte 8) (*)) url-bytes))
-  (flet ((parse-path (bytes start)
-           (values start
-                   (or (position #.(char-code #\?) bytes :start start)
-                       end)))
-         (parse-query (bytes start)
-           (values start
-                   (or (position #.(char-code #\#) bytes :start start)
-                       end))))
-    (if (= (aref url-bytes start) #.(char-code #\/))
-        (multiple-value-bind (path-start path-end)
-            (parse-path url-bytes start)
-          (if (= path-end end)
-              (values path-start path-end)
-              (multiple-value-bind (query-start query-end)
-                  (parse-query url-bytes (1+ path-end))
-                (values path-start path-end query-start query-end))))
-        (let ((protocol-end (search #.(babel:string-to-octets "://") url-bytes :start2 1)))
-          (unless protocol-end
-            (return-from parse-url))
-          (incf protocol-end 3)
-          (when (<= end protocol-end)
-            (return-from parse-url))
-          (let ((path-start (position #.(char-code #\/) url-bytes :start protocol-end)))
-            (unless path-start
-              (return-from parse-url))
-            (parse-url url-bytes path-start end))))))
-
 (defun handle-request (method resource path query version host headers socket)
   (multiple-value-bind (server-name server-port)
       (if host
@@ -382,35 +299,6 @@
 
 ;;
 ;; Handling responses
-
-(defvar *empty-chunk*
-  #.(babel:string-to-octets (format nil "0~C~C~C~C"
-                                    #\Return #\Newline
-                                    #\Return #\Newline)))
-
-(defvar *empty-bytes*
-  #.(babel:string-to-octets ""))
-
-(defun write-response-headers (socket status headers)
-  (fast-http:http-unparse (make-http-response :status status
-                                              :headers headers)
-                          (lambda (data)
-                            (as:write-socket-data socket data))))
-
-(defun start-chunked-response (socket status headers)
-  (write-response-headers socket status (append headers
-                                                (list :transfer-encoding "chunked")))
-
-  (let* ((async-stream (make-instance 'as:async-io-stream :socket socket))
-         (chunked-stream (chunga:make-chunked-stream async-stream)))
-    (setf (chunga:chunked-stream-output-chunking-p chunked-stream) t)
-    chunked-stream))
-
-(defun finish-response (socket &optional (body *empty-bytes*))
-  (as:write-socket-data socket body
-                        :write-cb (lambda (socket)
-                                    (setf (as:socket-data socket) nil)
-                                    (as:close-socket socket))))
 
 (defun handle-response (socket clack-res request-headers app debug)
   (etypecase clack-res
