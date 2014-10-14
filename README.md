@@ -1,10 +1,12 @@
 # Woo
 
-An asynchronous HTTP server written in Common Lisp bases on [cl-async](http://orthecreedence.github.com/cl-async) and [fast-http](https://github.com/fukamachi/fast-http).
+Woo is a non-blocking HTTP server written in Common Lisp built on top of [cl-async](http://orthecreedence.github.com/cl-async) and [fast-http](https://github.com/fukamachi/fast-http).
+
+The architecture is pretty similar to Wookie, except Woo adopts Clack-compatible APIs and delegates most "web-application-framework-like" parts to the Clack ecosystem.
 
 ## Warning
 
-This library is still under development and considered ALPHA quality. APIs are likely to change.
+This library is still under development and considered ALPHA quality.
 
 ## Usage
 
@@ -41,6 +43,13 @@ git clone https://github.com/fukamachi/woo
 ```common-lisp
 (ql:quickload :woo)
 ```
+
+## See Also
+
+* [cl-async](http://orthecreedence.github.com/cl-async)
+* [fast-http](https://github.com/fukamachi/fast-http)
+* [Wookie](http://wookie.beeets.com)
+* [Clack](http://clacklisp.org/)
 
 ## Author
 
