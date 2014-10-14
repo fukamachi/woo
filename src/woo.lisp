@@ -2,6 +2,8 @@
 (defpackage woo
   (:nicknames :clack.handler.woo)
   (:use :cl)
+  (:import-from :woo.tcp
+                :tcp-server-parallel)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-response-headers
@@ -57,6 +59,9 @@
                 :acquire-lock
                 :release-lock
                 :threadp)
+  (:import-from :lparallel
+                :*kernel*
+                :make-kernel)
   (:import-from :alexandria
                 :hash-table-plist
                 :copy-stream
@@ -65,40 +70,63 @@
            :stop))
 (in-package :woo)
 
+(cffi:define-foreign-library libevent2-pthreads
+  (:darwin (:or
+            "libevent_pthreads.dylib"
+            "/usr/local/lib/libevent_pthreads.dylib"
+            "/opt/local/lib/libevent_pthreads.dylib"))
+  (:unix (:or "/usr/local/lib/event2/libevent_pthreads.so"
+              "libevent_pthreads.so"
+              "libevent_pthreads-2.0.so.5"
+              "/usr/lib/libevent_pthreads.so"
+              "/usr/local/lib/libevent_pthreads.so"))
+  (t (:default "libevent_pthreads")))
+
+(defvar *app* nil)
+(defvar *debug* nil)
+
 (defun run (app &key (debug t) (port 5000)
                   (use-thread #+thread-support t
-                              #-thread-support nil))
-  (let ((server-started-lock (bt:make-lock "server-started")))
+                              #-thread-support nil)
+                  (kernel-count 1))
+  (let ((server-started-lock (bt:make-lock "server-started"))
+        (*app* app)
+        (*debug* debug))
     (flet ((start-server ()
              (as:with-event-loop (:catch-app-errors t)
                (as:tcp-server "0.0.0.0" port
                               #'read-cb
-                              (lambda (event)
-                                (typecase event
-                                  (as:tcp-eof ())
-                                  (as:tcp-error ()
-                                   (log:error (princ-to-string event)))
-                                  (as:tcp-info
-                                   (log:info (princ-to-string event))
-                                   (let ((socket (as:tcp-socket event)))
-                                     (write-response-headers socket 500 ())
-                                     (as:write-socket-data socket "Internal Server Error"
-                                                           :write-cb (lambda (socket)
-                                                                       (setf (as:socket-data socket) nil)
-                                                                       (as:close-socket socket)))))
-                                  (T
-                                   (log:info event))))
-                              :connect-cb (lambda (socket) (setup-parser socket app debug)))
+                              #'event-cb
+                              :connect-cb #'connect-cb)
+               (bt:release-lock server-started-lock)))
+           (start-server-multi ()
+             #+unix
+             (cffi:use-foreign-library libevent2-pthreads)
+             (as:enable-threading-support)
+             (setf lparallel:*kernel* (lparallel:make-kernel kernel-count
+                                                             :bindings `((*app* . ,*app*)
+                                                                         (*debug* . ,*debug*)) ))
+             (as:with-event-loop (:catch-app-errors t)
+               (tcp-server-parallel "0.0.0.0" port
+                                    #'read-cb
+                                    #'event-cb
+                                    :connect-cb #'connect-cb)
                (bt:release-lock server-started-lock))))
       (prog1
-          (if use-thread
-              (bt:make-thread #'start-server)
-              (start-server))
+          (let ((start-fn (if (< 1 kernel-count)
+                              #'start-server-multi
+                              #'start-server)))
+            (if use-thread
+                (bt:make-thread start-fn)
+                (funcall start-fn)))
         (bt:acquire-lock server-started-lock t)
         (sleep 0.05)))))
 
+(defun connect-cb (socket)
+  (setup-parser socket))
+
 (defun read-cb (socket data)
-  (let ((parser (getf (as:socket-data socket) :parser)))
+  (let ((parser (as:socket-data socket)))
     (handler-case (funcall parser data)
       (fast-http:parsing-error (e)
         (log:error "fast-http parsing error: ~A" e)
@@ -108,6 +136,19 @@
         (log:error "fast-http error: ~A" e)
         (write-response-headers socket 500 ())
         (finish-response socket #.(babel:string-to-octets "Internal Server Error"))))))
+
+(defun event-cb (event)
+  (typecase event
+    (as:tcp-eof ())
+    (as:tcp-error ()
+     (log:error (princ-to-string event)))
+    (as:tcp-info
+     (log:info (princ-to-string event))
+     (let ((socket (as:tcp-socket event)))
+       (write-response-headers socket 500 ())
+       (finish-response socket "Internal Server Error")))
+    (T
+     (log:info event))))
 
 (defun canonicalize-header-field (data start end)
   (let ((byte (aref data start)))
@@ -147,7 +188,7 @@
                   (code-char (byte-to-ascii-upper (aref data j)))))))))
 
 ;; Using Low-level parser of fast-http
-(defun setup-parser (socket app debug)
+(defun setup-parser (socket)
   (let (headers env
         (body-buffer (fast-io::make-output-buffer))
 
@@ -238,27 +279,19 @@
                                  (declare (ignore parser))
                                  (collect-prev-header-value)
                                  (setq completedp t))))
-      (setf (getf (as:socket-data socket) :parser)
-            (lambda (data)
+      (setf (as:socket-data socket)
+            (alexandria:named-lambda parse-execute (data)
+              (when completedp
+                (return-from parse-execute T))
               (http-parse parser callbacks data)
               (when completedp
-                (setq env
-                      (nconc (list :raw-body
-                                   (flex:make-in-memory-input-stream
-                                    (fast-io::finish-output-buffer body-buffer)))
-                             env))
                 (handle-response socket
-                                 (if debug
-                                     (funcall app env)
-                                     (if-let (res (handler-case (funcall app env)
-                                                    (error (error)
-                                                      (princ error *error-output*)
-                                                      nil)))
-                                       res
-                                       '(500 nil nil)))
-                                 headers
-                                 app
-                                 debug)))))))
+                                 (funcall *app* env)
+                                 (nconc (list :raw-body
+                                              (flex:make-in-memory-input-stream
+                                               (fast-io::finish-output-buffer body-buffer)))
+                                        env))
+                T))))))
 
 (defun stop (server)
   (if (bt:threadp server)
@@ -307,15 +340,20 @@
 ;;
 ;; Handling responses
 
-(defun handle-response (socket clack-res request-headers app debug)
-  (etypecase clack-res
-    (list (handle-normal-response socket clack-res request-headers app debug))
-    (function (funcall clack-res (lambda (clack-res)
-                                   (handler-case
-                                       (handle-normal-response socket clack-res request-headers app debug)
-                                     (as:socket-closed ())))))))
+(defun handle-response (socket clack-res request-headers)
+  (handler-case
+      (etypecase clack-res
+        (list (handle-normal-response socket clack-res request-headers))
+        (function (funcall clack-res (lambda (clack-res)
+                                       (handler-case
+                                           (handle-normal-response socket clack-res request-headers)
+                                         (as:socket-closed ()))))))
+    (as:tcp-error (e)
+      (log:error e))
+    (t (e)
+      (log:error e))))
 
-(defun handle-normal-response (socket clack-res request-headers app debug)
+(defun handle-normal-response (socket clack-res request-headers)
   (let ((no-body '#:no-body))
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
@@ -334,9 +372,8 @@
               (setq close (if close-specified-p
                               close
                               default-close))
-              (if close
-                  (finish-response socket *empty-chunk*)
-                  (setup-parser socket app debug))))))
+              (when close
+                (finish-response socket *empty-chunk*))))))
 
       (etypecase body
         (null
@@ -367,9 +404,9 @@
 
          (if (string= (getf request-headers :connection) "close")
              (finish-response socket)
-             (setup-parser socket app debug)))
+             (setup-parser socket)))
         ((vector (unsigned-byte 8))
          (write-response-headers socket status headers)
          (if (string= (getf request-headers :connection) "close")
              (finish-response socket body)
-             (setup-parser socket app debug)))))))
+             (setup-parser socket)))))))
