@@ -18,7 +18,7 @@ This library is still under development and considered ALPHA quality.
 (woo:run
   (lambda (env)
     (declare (ignore env))
-    '(200 (:content-type "text/plain" ("Hello, World")))))
+    '(200 (:content-type "text/plain") ("Hello, World"))))
 ```
 
 ### Start with Clack
