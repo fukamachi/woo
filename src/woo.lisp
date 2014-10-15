@@ -100,18 +100,19 @@
                               :connect-cb #'connect-cb)
                (bt:release-lock server-started-lock)))
            (start-server-multi ()
-             #+unix
-             (cffi:use-foreign-library libevent2-pthreads)
-             (as:enable-threading-support)
-             (setf lparallel:*kernel* (lparallel:make-kernel kernel-count
-                                                             :bindings `((*app* . ,*app*)
-                                                                         (*debug* . ,*debug*)) ))
              (as:with-event-loop (:catch-app-errors t)
                (tcp-server-parallel "0.0.0.0" port
                                     #'read-cb
                                     #'event-cb
                                     :connect-cb #'connect-cb)
                (bt:release-lock server-started-lock))))
+      (when (< 1 kernel-count)
+        #+unix
+        (cffi:use-foreign-library libevent2-pthreads)
+        (as:enable-threading-support)
+        (setf lparallel:*kernel* (lparallel:make-kernel kernel-count
+                                                        :bindings `((*app* . ,*app*)
+                                                                    (*debug* . ,*debug*)) )))
       (prog1
           (let ((start-fn (if (< 1 kernel-count)
                               #'start-server-multi
