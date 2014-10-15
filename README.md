@@ -2,7 +2,7 @@
 
 Woo is a non-blocking HTTP server written in Common Lisp built on top of [cl-async](http://orthecreedence.github.com/cl-async) and [fast-http](https://github.com/fukamachi/fast-http).
 
-The architecture is pretty similar to Wookie, except Woo adopts Clack-compatible APIs and delegates most "web-application-framework-like" parts to the Clack ecosystem.
+The architecture is pretty similar to Wookie, except Woo adopts Clack-compatible APIs and delegates all "web-application-framework-like" parts to the Clack ecosystem.
 
 ## Warning
 
@@ -30,7 +30,129 @@ This library is still under development and considered ALPHA quality.
   (lambda (env)
     (declare (ignore env))
     '(200 (:content-type "text/plain") ("Hello, World")))
-  :server :woo)
+  :server :woo
+  :use-default-middlewares nil)
+```
+
+## Run in parallel (experimental)
+
+Woo can work in parallel by specifying `:kernel-count` keyword argument to `woo:run`.
+
+```common-lisp
+(woo:run
+  (lambda (env)
+    (declare (ignore env))
+    '(200 (:content-type "text/plain") ("Hello, World")))
+  :kernel-count 4)
+```
+
+## Benchmark
+
+Comparison of the server performance to return "Hello, World" for every requests. Here's the results of requests/sec scores.
+
+![Benchmark Results](images/benchmark.png)
+
+I used the below command of [wrk](https://github.com/wg/wrk).
+
+```
+wrk -c 15 -t 5 -d 5 http://127.0.0.1:5000
+```
+
+The benchmarking environment is:
+
+* MacBook Pro Retina, 13-inch, Early 2013 (CPU: 3GHz Intel Core i7 / Memory: 8GB 1600 MHz)
+* wrk 3.1.1
+* SBCL 1.2.4
+* Node.js 0.10.21
+* Ruby 2.1.1
+* Quicklisp 2014-10-06
+* libevent 2.1.4-alpha (HEAD)
+
+### Goliath (Ruby)
+
+v1.0.4
+
+```
+$ RACK_ENV=production ruby benchmark/goliath.rb -v
+```
+
+```
+Running 5s test @ http://127.0.0.1:9000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     3.22ms    1.01ms   9.75ms   75.84%
+    Req/Sec     1.03k   245.69     1.67k    64.58%
+  24180 requests in 5.00s, 2.42MB read
+Requests/sec:   4834.73
+Transfer/sec:    495.75KB
+```
+
+### Wookie (Common Lisp)
+
+```
+$ sbcl --load benchmark/wookie.lisp
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.38ms    3.60ms  41.96ms   98.18%
+    Req/Sec     1.55k   308.14     2.00k    76.65%
+  36453 requests in 5.00s, 4.00MB read
+Requests/sec:   7293.43
+Transfer/sec:    819.09KB
+```
+
+### Hunchentoot (Common Lisp)
+
+```
+$ sbcl --load benchmark/hunchentoot.lisp
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   257.55ms  492.78ms   1.39s    78.26%
+    Req/Sec     3.01k     2.31k    9.89k    63.07%
+  67367 requests in 5.00s, 10.09MB read
+Requests/sec:  13479.84
+Transfer/sec:      2.02MB
+```
+
+### Node.js http module
+
+```
+$ node benchmark/node.js
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     0.94ms  198.93us   6.11ms   70.59%
+    Req/Sec     3.42k   588.23     4.89k    71.14%
+  80950 requests in 5.00s, 10.04MB read
+Requests/sec:  16193.35
+Transfer/sec:      2.01MB
+```
+
+### Woo (Common Lisp)
+
+```
+$ sbcl --load benchmark/woo.lisp
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.28ms    4.71ms  50.88ms   99.11%
+    Req/Sec     3.72k   531.27     4.55k    86.95%
+  87233 requests in 5.00s, 4.24MB read
+Requests/sec:  17453.65
+Transfer/sec:    869.27KB
 ```
 
 ## Installation
@@ -43,6 +165,12 @@ git clone https://github.com/fukamachi/woo
 ```common-lisp
 (ql:quickload :woo)
 ```
+
+## TODO
+
+* HTTP/1.0
+* SSL
+* Make it faster, more scalable
 
 ## See Also
 
