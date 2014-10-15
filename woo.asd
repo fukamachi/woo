@@ -24,10 +24,13 @@
                :flexi-streams
                :bordeaux-threads
                :log4cl
+               :lparallel
+               :cffi
                :alexandria)
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("url" "response"))
+                ((:file "woo" :depends-on ("tcp" "url" "response"))
+                 (:file "tcp")
                  (:file "response")
                  (:file "url"))))
   :description "An asynchronous HTTP server written in Common Lisp"
