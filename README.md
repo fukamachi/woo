@@ -68,6 +68,8 @@ The benchmarking environment is:
 * Quicklisp 2014-10-06
 * libevent 2.1.4-alpha (HEAD)
 
+NOTE: Though the machine has multiple CPUs, this benchmark assumes single core environment. Some web servers has features to run on multiple CPU cores with better performance, like Hunchentoot's threaded taskmanager or Node.js's cluster.
+
 ### Goliath (Ruby)
 
 v1.0.4
