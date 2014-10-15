@@ -8,5 +8,7 @@
 (hunchentoot:define-easy-handler (say-hello :uri "/") ()
   "Hello, World!")
 
-(hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port 5000
+(hunchentoot:start (make-instance 'hunchentoot:easy-acceptor
+                                  :port 5000
+                                  :taskmaster (make-instance 'hunchentoot:single-threaded-taskmaster)
                                   :access-log-destination nil))

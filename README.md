@@ -87,6 +87,24 @@ Requests/sec:   4834.73
 Transfer/sec:    495.75KB
 ```
 
+### Hunchentoot (Common Lisp)
+
+```
+$ sbcl --load benchmark/hunchentoot.lisp
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   150.77us   86.97us   3.83ms   99.61%
+    Req/Sec     6.57k   612.06     7.33k    65.92%
+  30260 requests in 6.00s, 4.53MB read
+  Socket errors: connect 0, read 0, write 0, timeout 35
+Requests/sec:   5042.76
+Transfer/sec:    773.16KB
+```
+
 ### Wookie (Common Lisp)
 
 ```
@@ -102,23 +120,6 @@ Running 5s test @ http://127.0.0.1:5000
   36453 requests in 5.00s, 4.00MB read
 Requests/sec:   7293.43
 Transfer/sec:    819.09KB
-```
-
-### Hunchentoot (Common Lisp)
-
-```
-$ sbcl --load benchmark/hunchentoot.lisp
-```
-
-```
-Running 5s test @ http://127.0.0.1:5000
-  5 threads and 15 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   257.55ms  492.78ms   1.39s    78.26%
-    Req/Sec     3.01k     2.31k    9.89k    63.07%
-  67367 requests in 5.00s, 10.09MB read
-Requests/sec:  13479.84
-Transfer/sec:      2.02MB
 ```
 
 ### Node.js http module
