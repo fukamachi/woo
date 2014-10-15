@@ -112,7 +112,7 @@
         (as:enable-threading-support)
         (setf lparallel:*kernel* (lparallel:make-kernel kernel-count
                                                         :bindings `((*app* . ,*app*)
-                                                                    (*debug* . ,*debug*)) )))
+                                                                    (*debug* . ,*debug*)))))
       (prog1
           (let ((start-fn (if (< 1 kernel-count)
                               #'start-server-multi

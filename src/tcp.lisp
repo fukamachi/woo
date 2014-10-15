@@ -44,13 +44,11 @@
      (lparallel.kernel::make-task
       (lambda ()
         (as:with-event-loop ()
-          (let* ((callbacks (cl-async-util:get-callbacks data-pointer))
-                 (event-base-c (cl-async-base:event-base-c cl-async-base:*event-base*))
+          (let* ((event-base-c (cl-async-base:event-base-c cl-async-base:*event-base*))
                  (bev (le:bufferevent-socket-new event-base-c fd cl-async-util:+bev-opt-close-on-free+)))
 
             (as::init-incoming-socket bev
-                                      (append callbacks
-                                              (list :read-cb read-cb :connect-cb connect-cb))
+                                      (list :read-cb read-cb :connect-cb connect-cb)
                                       server)))))
      lparallel.kernel:*kernel*)))
 
