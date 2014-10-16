@@ -124,6 +124,23 @@ Requests/sec:   7293.43
 Transfer/sec:    819.09KB
 ```
 
+### Woo (Common Lisp)
+
+```
+$ sbcl --load benchmark/woo.lisp
+```
+
+```
+Running 5s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     0.97ms  303.02us   6.19ms   91.49%
+    Req/Sec     3.28k   430.03     4.00k    78.71%
+  76101 requests in 5.00s, 8.27MB read
+Requests/sec:  15229.29
+Transfer/sec:      1.66MB
+```
+
 ### Node.js http module
 
 ```
@@ -139,23 +156,6 @@ Running 5s test @ http://127.0.0.1:5000
   80950 requests in 5.00s, 10.04MB read
 Requests/sec:  16193.35
 Transfer/sec:      2.01MB
-```
-
-### Woo (Common Lisp)
-
-```
-$ sbcl --load benchmark/woo.lisp
-```
-
-```
-Running 5s test @ http://127.0.0.1:5000
-  5 threads and 15 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   644.06us  266.32us   7.97ms   97.68%
-    Req/Sec     4.85k   507.15     5.78k    79.64%
-  114923 requests in 5.00s, 5.59MB read
-Requests/sec:  22987.92
-Transfer/sec:      1.12MB
 ```
 
 ## Installation
