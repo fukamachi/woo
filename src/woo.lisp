@@ -11,6 +11,7 @@
                 :finish-response)
   (:import-from :woo.url
                 :url-decode
+                :url-decoding-error
                 :parse-url)
   (:import-from :fast-http
                 :make-ll-parser
@@ -232,7 +233,13 @@
                     (multiple-value-bind (path-start path-end query-start query-end)
                         (parse-url data start end)
                       (when path-start
-                        (setq url-path (trivial-utf-8:utf-8-bytes-to-string (url-decode data path-start path-end))))
+                        (setq url-path
+                              (handler-case
+                                  (trivial-utf-8:utf-8-bytes-to-string (url-decode data path-start path-end))
+                                (url-decoding-error ()
+                                  (trivial-utf-8:utf-8-bytes-to-string data
+                                                                       :start path-start
+                                                                       :end path-end)))))
                       (when query-start
                         (setq url-query (trivial-utf-8:utf-8-bytes-to-string data :start query-start :end query-end))))
                     (setq resource (trivial-utf-8:utf-8-bytes-to-string data :start start :end end)))
