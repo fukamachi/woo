@@ -117,7 +117,9 @@
       (prog1
           (let ((start-fn (if (< 1 kernel-count)
                               #'start-server-multi
-                              #'start-server)))
+                              #'start-server))
+                (bt:*default-special-bindings* `((*app* . ,app)
+                                                 (*debug* . ,debug))))
             (if use-thread
                 (bt:make-thread start-fn)
                 (funcall start-fn)))
