@@ -257,9 +257,9 @@
 
                              (let ((field (canonicalize-header-field data start end)))
                                (cond
-                                 ((eq field :host)
+                                 ((eq field :http-host)
                                   (setq parsing-host-p t))
-                                 ((eq field :connection)
+                                 ((eq field :http-connection)
                                   (setq parsing-connection-p t)))
                                (funcall headers-collector field)))
              :header-value (lambda (parser data start end)
