@@ -151,11 +151,11 @@ $ sbcl --load benchmark/woo.lisp
 Running 5s test @ http://127.0.0.1:5000
   5 threads and 15 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.28ms    4.71ms  50.88ms   99.11%
-    Req/Sec     3.72k   531.27     4.55k    86.95%
-  87233 requests in 5.00s, 4.24MB read
-Requests/sec:  17453.65
-Transfer/sec:    869.27KB
+    Latency   717.66us  192.11us   5.15ms   88.93%
+    Req/Sec     4.35k   420.61     5.22k    73.27%
+  103045 requests in 5.00s, 5.01MB read
+Requests/sec:  20613.19
+Transfer/sec:      1.00MB
 ```
 
 ## Installation
