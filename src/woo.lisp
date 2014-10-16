@@ -314,13 +314,14 @@
                 (return-from parse-execute T))
               (http-parse parser callbacks data)
               (when completedp
-                (handle-response socket
-                                 (funcall *app* env)
-                                 (nconc (list :raw-body
-                                              (flex:make-in-memory-input-stream
-                                               (fast-io::finish-output-buffer body-buffer)))
-                                        env)
-                                 connection)
+                (let ((env (nconc (list :raw-body
+                                        (flex:make-in-memory-input-stream
+                                         (fast-io::finish-output-buffer body-buffer)))
+                                  env)))
+                  (handle-response socket
+                                   (funcall *app* env)
+                                   env
+                                   connection))
                 T))))))
 
 (defun stop (server)
