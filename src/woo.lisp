@@ -152,41 +152,22 @@
      (log:info event))))
 
 (defun canonicalize-header-field (data start end)
+  (declare (type (simple-array (unsigned-byte 8) (*)) data)
+           (optimize (speed 3) (safety 2)))
   (let ((byte (aref data start)))
     (if (or (= byte #.(char-code #\C))
-            (= byte #.(char-code #\R))
-            (= byte #.(char-code #\S))
-            (= byte #.(char-code #\c))
-            (= byte #.(char-code #\r))
-            (= byte #.(char-code #\s)))
-        (let ((field
-                (intern (ascii-octets-to-upper-string data :start start :end end)
-                        :keyword)))
-          (if (find field '(:content-length
-                            :content-type
-                            :connection
-                            :request-method
-                            :script-name
-                            :path-info
-                            :server-name
-                            :server-port
-                            :server-protocol
-                            :request-uri
-                            :remote-addr
-                            :remote-port
-                            :query-string))
-              field
-              (intern (format nil "HTTP-~:@(~A~)" field) :keyword)))
+            (= byte #.(char-code #\c)))
+        (let ((field-str (ascii-octets-to-upper-string data :start start :end end)))
+          (declare (type string field-str))
+          (if (or (string= field-str "CONTENT-TYPE")
+                  (string= field-str "CONTENT-LENGTH"))
+              (intern field-str :keyword)
+              (intern (format nil "HTTP-~A" field-str) :keyword)))
         ;; This must be a custom header
         (let ((string (make-string (+ 5 (- end start)) :element-type 'character)))
-          (loop for i from 0
-                for char across "HTTP-"
-                do (setf (aref string i) char))
-          (do ((i 5 (1+ i))
-               (j start (1+ j)))
-              ((= j end) (intern string :keyword))
-            (setf (aref string i)
-                  (code-char (byte-to-ascii-upper (aref data j)))))))))
+          (replace string "HTTP-")
+          (replace string (ascii-octets-to-upper-string data :start start :end end)
+                   :start1 5)))))
 
 (defun http-version-keyword (major minor)
   (cond
