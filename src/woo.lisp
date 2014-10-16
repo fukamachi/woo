@@ -170,7 +170,8 @@
         (let ((string (make-string (+ 5 (- end start)) :element-type 'character)))
           (replace string "HTTP-")
           (replace string (ascii-octets-to-upper-string data :start start :end end)
-                   :start1 5)))))
+                   :start1 5)
+          (intern string :keyword)))))
 
 (defun http-version-keyword (major minor)
   (cond
