@@ -311,7 +311,14 @@
                                          (fast-io::finish-output-buffer body-buffer)))
                                   env)))
                   (handle-response socket
-                                   (funcall *app* env)
+                                   (if *debug*
+                                       (funcall *app* env)
+                                       (if-let (res (handler-case (funcall *app* env)
+                                                      (error (error)
+                                                        (log:error error)
+                                                        nil)))
+                                         res
+                                         '(500 nil nil)))
                                    env
                                    connection))
                 T))))))
