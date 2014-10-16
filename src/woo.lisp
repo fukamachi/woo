@@ -194,6 +194,7 @@
         (body-buffer (fast-io::make-output-buffer))
 
         parsing-host-p
+        parsing-connection-p
 
         resource
         url-path
@@ -201,6 +202,7 @@
         method
         version
         host
+        connection
         (headers-collector (make-collector))
         (header-value-collector nil)
         (current-len 0)
@@ -219,9 +221,13 @@
                         (if (number-string-p header-value)
                             (read-from-string header-value)
                             header-value)))
-                 (when parsing-host-p
-                   (setq host header-value
-                         parsing-host-p nil))
+                 (cond
+                   (parsing-host-p
+                    (setq host header-value
+                          parsing-host-p nil))
+                   (parsing-connection-p
+                    (setq connection header-value
+                          parsing-connection-p nil)))
                  (funcall headers-collector header-value)))))
       (setq callbacks
             (make-ll-callbacks
@@ -242,8 +248,11 @@
                              (setq current-len 0)
 
                              (let ((field (canonicalize-header-field data start end)))
-                               (when (eq field :host)
-                                 (setq parsing-host-p t))
+                               (cond
+                                 ((eq field :host)
+                                  (setq parsing-host-p t))
+                                 ((eq field :connection)
+                                  (setq parsing-connection-p t)))
                                (funcall headers-collector field)))
              :header-value (lambda (parser data start end)
                              (declare (ignore parser)
@@ -291,7 +300,8 @@
                                  (nconc (list :raw-body
                                               (flex:make-in-memory-input-stream
                                                (fast-io::finish-output-buffer body-buffer)))
-                                        env))
+                                        env)
+                                 connection)
                 T))))))
 
 (defun stop (server)
@@ -341,26 +351,25 @@
 ;;
 ;; Handling responses
 
-(defun handle-response (socket clack-res request-headers)
+(defun handle-response (socket clack-res request-headers connection)
   (handler-case
       (etypecase clack-res
-        (list (handle-normal-response socket clack-res request-headers))
+        (list (handle-normal-response socket clack-res request-headers connection))
         (function (funcall clack-res (lambda (clack-res)
                                        (handler-case
-                                           (handle-normal-response socket clack-res request-headers)
+                                           (handle-normal-response socket clack-res request-headers connection)
                                          (as:socket-closed ()))))))
     (as:tcp-error (e)
       (log:error e))
     (t (e)
       (log:error e))))
 
-(defun handle-normal-response (socket clack-res request-headers)
+(defun handle-normal-response (socket clack-res request-headers connection)
   (let ((no-body '#:no-body))
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
       (when (eq body no-body)
         (let* ((stream (start-chunked-response socket status headers))
-               (connection (getf request-headers :connection))
                (default-close (cond
                                 ((string= connection "keep-alive") nil)
                                 ((string= connection "close") t))))
@@ -403,11 +412,11 @@
 
          (as:write-socket-data socket body)
 
-         (if (string= (getf request-headers :connection) "close")
+         (if (string= connection "close")
              (finish-response socket)
              (setup-parser socket)))
         ((vector (unsigned-byte 8))
          (write-response-headers socket status headers)
-         (if (string= (getf request-headers :connection) "close")
+         (if (string= connection "close")
              (finish-response socket body)
              (setup-parser socket)))))))
