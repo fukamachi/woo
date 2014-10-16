@@ -405,28 +405,30 @@
                     (force-output stream)
                     (finish-response socket *empty-chunk*)))
         (list
-         (setf body
-               (fast-io:with-fast-output (buffer :vector)
-                 (loop with content-length = 0
-                       for str in body
-                       do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str :encoding :utf-8)))
-                            (fast-io:fast-write-sequence bytes buffer)
-                            (incf content-length (length bytes)))
-                       finally
-                          (unless (getf headers :content-length)
-                            (setf headers
-                                  (append headers
-                                          (list :content-length content-length)))))))
+         (let ((close (string= connection "close")))
+           (setf body
+                 (fast-io:with-fast-output (buffer :vector)
+                   (loop with content-length = 0
+                         for str in body
+                         do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str :encoding :utf-8)))
+                              (fast-io:fast-write-sequence bytes buffer)
+                              (incf content-length (length bytes)))
+                         finally
+                            (unless (getf headers :content-length)
+                              (setf headers
+                                    (append headers
+                                            (list :content-length content-length)))))))
 
-         (write-response-headers socket status headers)
+           (write-response-headers socket status headers (not close))
 
-         (as:write-socket-data socket body)
+           (as:write-socket-data socket body)
 
-         (if (string= connection "close")
-             (finish-response socket)
-             (setup-parser socket)))
+           (if close
+               (finish-response socket)
+               (setup-parser socket))))
         ((vector (unsigned-byte 8))
-         (write-response-headers socket status headers)
-         (if (string= connection "close")
-             (finish-response socket body)
-             (setup-parser socket)))))))
+         (let ((close (string= connection "close")))
+           (write-response-headers socket status headers (not close))
+           (if close
+               (finish-response socket body)
+               (setup-parser socket))))))))

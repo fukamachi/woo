@@ -26,6 +26,7 @@
                :log4cl
                :lparallel
                :cffi
+               :local-time
                :alexandria)
   :components ((:module "src"
                 :components

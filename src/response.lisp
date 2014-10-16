@@ -46,9 +46,24 @@
 (defvar *empty-bytes*
   #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
-(defun write-response-headers (socket status headers)
+(defvar +date-header-format+
+  (append
+   (list "Date: ")
+   local-time:+rfc-1123-format+
+   (list (format nil "~C~C" #\Return #\Newline))))
+
+(defun write-response-headers (socket status headers &optional keep-alive-p)
   (as:write-socket-data socket
                         (gethash status *status-line*))
+  ;; Send default headers
+  (as:write-socket-data socket
+                        (local-time:format-timestring nil
+                                                      (local-time:now)
+                                                      :format +date-header-format+))
+  (when keep-alive-p
+    (as:write-socket-data socket
+                          #.(trivial-utf-8:string-to-utf-8-bytes
+                             (format nil "Connection: keep-alive~C~C" #\Return #\Newline))))
   (loop for (k v) on headers by #'cddr
         when v
           do (as:write-socket-data socket
