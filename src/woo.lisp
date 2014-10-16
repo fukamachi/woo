@@ -183,6 +183,7 @@
        (T (intern (format nil "HTTP/2.~A" minor) :keyword))))
     (T (intern (format nil "HTTP/~A.~A" major minor) :keyword))))
 
+(declaim (inline fast-http.util:number-string-p))
 ;; Using Low-level parser of fast-http
 (defun setup-parser (socket)
   (let (headers env
@@ -311,6 +312,7 @@
                                    env
                                    connection))
                 T))))))
+(declaim (notinline fast-http.util:number-string-p))
 
 (defun stop (server)
   (if (bt:threadp server)
