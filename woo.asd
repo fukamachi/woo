@@ -20,7 +20,7 @@
                :fast-http
                :fast-io
                :chunga
-               :babel
+               :trivial-utf-8
                :flexi-streams
                :bordeaux-threads
                :log4cl

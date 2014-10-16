@@ -12,8 +12,8 @@
   (:import-from :chunga
                 :make-chunked-stream
                 :chunked-stream-output-chunking-p )
-  (:import-from :babel
-                :string-to-octets)
+  (:import-from :trivial-utf-8
+                :string-to-utf-8-bytes)
   (:export :*empty-chunk*
            :*empty-bytes*
            :write-response-headers
@@ -36,15 +36,15 @@
                       400 401 402 403 404 405 406 407 408 409 410 411 412 413 414 415 416 417
                       500 501 502 503 504 505)
       do (setf (gethash status *status-line*)
-               (babel:string-to-octets (http/1.1 status))))
+               (trivial-utf-8:string-to-utf-8-bytes (http/1.1 status))))
 
 (defvar *empty-chunk*
-  #.(babel:string-to-octets (format nil "0~C~C~C~C"
-                                    #\Return #\Newline
-                                    #\Return #\Newline)))
+  #.(trivial-utf-8:string-to-utf-8-bytes (format nil "0~C~C~C~C"
+                                                 #\Return #\Newline
+                                                 #\Return #\Newline)))
 
 (defvar *empty-bytes*
-  #.(babel:string-to-octets ""))
+  #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
 (defun write-response-headers (socket status headers)
   (as:write-socket-data socket
@@ -54,7 +54,7 @@
           do (as:write-socket-data socket
                                    (format nil "~:(~A~): ~A~C~C"
                                            k v #\Return #\Newline)))
-  (as:write-socket-data socket #.(babel:string-to-octets (format nil "~C~C" #\Return #\Newline))))
+  (as:write-socket-data socket #.(trivial-utf-8:string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline))))
 
 (defun start-chunked-response (socket status headers)
   (write-response-headers socket status (append headers

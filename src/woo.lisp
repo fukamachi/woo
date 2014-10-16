@@ -47,9 +47,9 @@
                 :with-fast-output
                 :fast-write-byte
                 :fast-write-sequence)
-  (:import-from :babel
-                :string-to-octets
-                :octets-to-string)
+  (:import-from :trivial-utf-8
+                :string-to-utf-8-bytes
+                :utf-8-bytes-to-string)
   (:import-from :flexi-streams
                 :make-in-memory-output-stream)
   (:import-from :bordeaux-threads
@@ -136,7 +136,7 @@
       (fast-http:fast-http-error (e)
         (log:error "fast-http error: ~A" e)
         (write-response-headers socket 500 ())
-        (finish-response socket #.(babel:string-to-octets "Internal Server Error"))))))
+        (finish-response socket #.(trivial-utf-8:string-to-utf-8-bytes "Internal Server Error"))))))
 
 (defun event-cb (event)
   (typecase event
@@ -236,10 +236,10 @@
                     (multiple-value-bind (path-start path-end query-start query-end)
                         (parse-url data start end)
                       (when path-start
-                        (setq url-path (babel:octets-to-string (url-decode data path-start path-end))))
+                        (setq url-path (trivial-utf-8:utf-8-bytes-to-string (url-decode data path-start path-end))))
                       (when query-start
-                        (setq url-query (babel:octets-to-string data :start query-start :end query-end))))
-                    (setq resource (babel:octets-to-string data :start start :end end)))
+                        (setq url-query (trivial-utf-8:utf-8-bytes-to-string data :start query-start :end query-end))))
+                    (setq resource (trivial-utf-8:utf-8-bytes-to-string data :start start :end end)))
              :header-field (lambda (parser data start end)
                              (declare (ignore parser)
                                       (type (simple-array (unsigned-byte 8) (*)) data))
@@ -376,7 +376,7 @@
           (return-from handle-normal-response
             (lambda (body &key (close nil close-specified-p))
               (etypecase body
-                (string (write-sequence (babel:string-to-octets body) stream))
+                (string (write-sequence (trivial-utf-8:string-to-utf-8-bytes body) stream))
                 (vector (write-sequence body stream)))
               (force-output stream)
               (setq close (if close-specified-p
@@ -399,7 +399,7 @@
                (fast-io:with-fast-output (buffer :vector)
                  (loop with content-length = 0
                        for str in body
-                       do (let ((bytes (babel:string-to-octets str :encoding :utf-8)))
+                       do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str :encoding :utf-8)))
                             (fast-io:fast-write-sequence bytes buffer)
                             (incf content-length (length bytes)))
                        finally

@@ -7,6 +7,8 @@
   (:import-from :fast-io
                 :with-fast-output
                 :fast-write-byte)
+  (:import-from :trivial-utf-8
+                :string-to-utf-8-bytes)
   (:export :url-decode
            :parse-url))
 (in-package :woo.url)
@@ -84,7 +86,7 @@
               (multiple-value-bind (query-start query-end)
                   (parse-query url-bytes (1+ path-end))
                 (values path-start path-end query-start query-end))))
-        (let ((protocol-end (search #.(babel:string-to-octets "://") url-bytes :start2 1)))
+        (let ((protocol-end (search #.(trivial-utf-8:string-to-utf-8-bytes "://") url-bytes :start2 1)))
           (unless protocol-end
             (return-from parse-url))
           (incf protocol-end 3)
