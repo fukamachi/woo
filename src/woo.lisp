@@ -188,6 +188,19 @@
             (setf (aref string i)
                   (code-char (byte-to-ascii-upper (aref data j)))))))))
 
+(defun http-version-keyword (major minor)
+  (cond
+    ((= major 1)
+     (cond
+       ((= minor 1) :HTTP/1.1)
+       ((= minor 0) :HTTP/1.0)
+       (T (intern (format nil "HTTP/1.~A" minor) :keyword))))
+    ((= major 2)
+     (cond
+       ((= minor 0) :HTTP/2.0)
+       (T (intern (format nil "HTTP/2.~A" minor) :keyword))))
+    (T (intern (format nil "HTTP/~A.~A" major minor) :keyword))))
+
 ;; Using Low-level parser of fast-http
 (defun setup-parser (socket)
   (let (headers env
@@ -232,7 +245,9 @@
       (setq callbacks
             (make-ll-callbacks
              :url (lambda (parser data start end)
-                    (declare (ignore parser))
+                    (declare (ignore parser)
+                             (type (simple-array (unsigned-byte 8) (*)) data)
+                             (optimize (speed 3)))
                     (multiple-value-bind (path-start path-end query-start query-end)
                         (parse-url data start end)
                       (when path-start
@@ -242,7 +257,8 @@
                     (setq resource (trivial-utf-8:utf-8-bytes-to-string data :start start :end end)))
              :header-field (lambda (parser data start end)
                              (declare (ignore parser)
-                                      (type (simple-array (unsigned-byte 8) (*)) data))
+                                      (type (simple-array (unsigned-byte 8) (*)) data)
+                                      (optimize (speed 3)))
                              (collect-prev-header-value)
                              (setq header-value-collector (make-collector))
                              (setq current-len 0)
@@ -256,17 +272,19 @@
                                (funcall headers-collector field)))
              :header-value (lambda (parser data start end)
                              (declare (ignore parser)
-                                      (type (simple-array (unsigned-byte 8) (*)) data))
+                                      (type (simple-array (unsigned-byte 8) (*)) data)
+                                      (optimize (speed 3)))
                              (incf current-len (- end start))
                              (funcall header-value-collector
                                       (make-byte-vector-subseq data start end)))
              :headers-complete (lambda (parser)
+                                 (declare (type (simple-array (unsigned-byte 8) (*)) data)
+                                          (optimize (speed 3)))
                                  (collect-prev-header-value)
                                  (setq version
-                                       (intern (format nil "HTTP/~A.~A"
-                                                       (parser-http-major parser)
-                                                       (parser-http-minor parser))
-                                               :keyword))
+                                       (http-version-keyword
+                                        (parser-http-major parser)
+                                        (parser-http-minor parser)))
                                  (setq method (parser-method parser))
                                  (setq headers (funcall headers-collector))
                                  (setq env (handle-request method
@@ -281,7 +299,8 @@
                                        header-value-collector nil))
              :body (lambda (parser data start end)
                      (declare (ignore parser)
-                              (type (simple-array (unsigned-byte 8) (*)) data))
+                              (type (simple-array (unsigned-byte 8) (*)) data)
+                              (optimize (speed 3)))
                      (do ((i start (1+ i)))
                          ((= i end))
                        (fast-write-byte (aref data i) body-buffer)))
