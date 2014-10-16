@@ -85,7 +85,7 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000)
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0")
                   (use-thread #+thread-support t
                               #-thread-support nil)
                   (kernel-count 1))
@@ -94,14 +94,14 @@
         (*debug* debug))
     (flet ((start-server ()
              (as:with-event-loop (:catch-app-errors t)
-               (as:tcp-server "0.0.0.0" port
+               (as:tcp-server address port
                               #'read-cb
                               #'event-cb
                               :connect-cb #'connect-cb)
                (bt:release-lock server-started-lock)))
            (start-server-multi ()
              (as:with-event-loop (:catch-app-errors t)
-               (tcp-server-parallel "0.0.0.0" port
+               (tcp-server-parallel address port
                                     #'read-cb
                                     #'event-cb
                                     :connect-cb #'connect-cb)
