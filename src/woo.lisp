@@ -25,8 +25,7 @@
                 :byte-vector-subseqs-to-string
                 :make-byte-vector-subseq)
   (:import-from :fast-http.byte-vector
-                :ascii-octets-to-upper-string
-                :byte-to-ascii-upper)
+                :ascii-octets-to-lower-string)
   (:import-from :fast-http.util
                 :number-string-p
                 :make-collector)
@@ -154,25 +153,6 @@
     (T
      (log:info event))))
 
-(defun canonicalize-header-field (data start end)
-  (declare (type (simple-array (unsigned-byte 8) (*)) data)
-           (optimize (speed 3) (safety 2)))
-  (let ((byte (aref data start)))
-    (if (or (= byte #.(char-code #\C))
-            (= byte #.(char-code #\c)))
-        (let ((field-str (ascii-octets-to-upper-string data :start start :end end)))
-          (declare (type string field-str))
-          (if (or (string= field-str "CONTENT-TYPE")
-                  (string= field-str "CONTENT-LENGTH"))
-              (intern field-str :keyword)
-              (intern (format nil "HTTP-~A" field-str) :keyword)))
-        ;; This must be a custom header
-        (let ((string (make-string (+ 5 (- end start)) :element-type 'character)))
-          (replace string "HTTP-")
-          (replace string (ascii-octets-to-upper-string data :start start :end end)
-                   :start1 5)
-          (intern string :keyword)))))
-
 (defun http-version-keyword (major minor)
   (cond
     ((= major 1)
@@ -189,9 +169,11 @@
 (declaim (inline fast-http.util:number-string-p))
 ;; Using Low-level parser of fast-http
 (defun setup-parser (socket)
-  (let (headers env
+  (let ((headers (make-hash-table :test 'equal))
+        env
         (body-buffer (fast-io::make-output-buffer))
 
+        parsing-header-field
         parsing-host-p
         parsing-connection-p
 
@@ -202,7 +184,6 @@
         version
         host
         connection
-        (headers-collector (make-collector))
         (header-value-collector nil)
         (current-len 0)
 
@@ -227,7 +208,12 @@
                    (parsing-connection-p
                     (setq connection header-value
                           parsing-connection-p nil)))
-                 (funcall headers-collector header-value)))))
+                 (multiple-value-bind (previous-value existsp)
+                     (gethash parsing-header-field headers)
+                   (setf (gethash parsing-header-field headers)
+                         (if existsp
+                             (format nil "~A, ~A" previous-value header-value)
+                             header-value)))))))
       (setq callbacks
             (make-ll-callbacks
              :url (lambda (parser data start end)
@@ -255,13 +241,13 @@
                              (setq header-value-collector (make-collector))
                              (setq current-len 0)
 
-                             (let ((field (canonicalize-header-field data start end)))
+                             (let ((field (ascii-octets-to-lower-string data :start start :end end)))
                                (cond
-                                 ((eq field :http-host)
+                                 ((string= field "host")
                                   (setq parsing-host-p t))
-                                 ((eq field :http-connection)
+                                 ((string= field "connection")
                                   (setq parsing-connection-p t)))
-                               (funcall headers-collector field)))
+                               (setq parsing-header-field field)))
              :header-value (lambda (parser data start end)
                              (declare (ignore parser)
                                       (type (simple-array (unsigned-byte 8) (*)) data)
@@ -278,7 +264,6 @@
                                         (parser-http-major parser)
                                         (parser-http-minor parser)))
                                  (setq method (parser-method parser))
-                                 (setq headers (funcall headers-collector))
                                  (setq env (handle-request method
                                                            resource
                                                            url-path
@@ -287,8 +272,7 @@
                                                            host
                                                            headers
                                                            socket))
-                                 (setq headers-collector nil
-                                       header-value-collector nil))
+                                 (setq header-value-collector nil))
              :body (lambda (parser data start end)
                      (declare (ignore parser)
                               (type (simple-array (unsigned-byte 8) (*)) data)
@@ -319,7 +303,6 @@
                                                         nil)))
                                          res
                                          '(500 nil nil)))
-                                   env
                                    connection))
                 T))))))
 (declaim (notinline fast-http.util:number-string-p))
@@ -350,41 +333,38 @@
       (if host
           (parse-host-header host)
           (values nil nil))
-    (nconc
-     (list :request-method method
-           :script-name ""
-           :server-name server-name
-           :server-port (or server-port 80)
-           :server-protocol version
-           :path-info path
-           :query-string query
-           :url-scheme :http
-           :request-uri resource
-           :clack.streaming t
-           :clack.nonblocking t
-           :clack.io socket)
-
-     ;; FIXME: Concat duplicate headers with a comma.
-     headers)))
+    (list :request-method method
+          :script-name ""
+          :server-name server-name
+          :server-port (or server-port 80)
+          :server-protocol version
+          :path-info path
+          :query-string query
+          :url-scheme :http
+          :request-uri resource
+          :clack.streaming t
+          :clack.nonblocking t
+          :clack.io socket
+          :headers headers)))
 
 
 ;;
 ;; Handling responses
 
-(defun handle-response (socket clack-res request-headers connection)
+(defun handle-response (socket clack-res connection)
   (handler-case
       (etypecase clack-res
-        (list (handle-normal-response socket clack-res request-headers connection))
+        (list (handle-normal-response socket clack-res connection))
         (function (funcall clack-res (lambda (clack-res)
                                        (handler-case
-                                           (handle-normal-response socket clack-res request-headers connection)
+                                           (handle-normal-response socket clack-res connection)
                                          (as:socket-closed ()))))))
     (as:tcp-error (e)
       (log:error e))
     (t (e)
       (log:error e))))
 
-(defun handle-normal-response (socket clack-res request-headers connection)
+(defun handle-normal-response (socket clack-res connection)
   (let ((no-body '#:no-body))
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
