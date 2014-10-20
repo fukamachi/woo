@@ -21,14 +21,15 @@
                 :parser-http-minor
                 :http-parse
                 :parsing-error)
-  (:import-from :fast-http.subseqs
-                :byte-vector-subseqs-to-string
-                :make-byte-vector-subseq)
   (:import-from :fast-http.byte-vector
                 :ascii-octets-to-lower-string)
   (:import-from :fast-http.util
-                :number-string-p
-                :make-collector)
+                :number-string-p)
+  (:import-from :xsubseq
+                :coerce-to-string
+                :make-null-concatenated-xsubseqs
+                :xnconcf
+                :xsubseq)
   (:import-from :cl-async
                 :socket-closed
                 :write-socket-data
@@ -185,7 +186,6 @@
         host
         connection
         (header-value-collector nil)
-        (current-len 0)
 
         completedp
 
@@ -194,9 +194,7 @@
     (flet ((collect-prev-header-value ()
              (when header-value-collector
                (let* ((header-value
-                        (byte-vector-subseqs-to-string
-                         (funcall header-value-collector)
-                         current-len))
+                        (coerce-to-string header-value-collector))
                       (header-value
                         (if (number-string-p header-value)
                             (read-from-string header-value)
@@ -238,8 +236,7 @@
                                       (type (simple-array (unsigned-byte 8) (*)) data)
                                       (optimize (speed 3)))
                              (collect-prev-header-value)
-                             (setq header-value-collector (make-collector))
-                             (setq current-len 0)
+                             (setq header-value-collector (make-null-concatenated-xsubseqs))
 
                              (let ((field (ascii-octets-to-lower-string data :start start :end end)))
                                (cond
@@ -252,9 +249,8 @@
                              (declare (ignore parser)
                                       (type (simple-array (unsigned-byte 8) (*)) data)
                                       (optimize (speed 3)))
-                             (incf current-len (- end start))
-                             (funcall header-value-collector
-                                      (make-byte-vector-subseq data start end)))
+                             (xnconcf header-value-collector
+                                      (xsubseq data start end)))
              :headers-complete (lambda (parser)
                                  (declare (type (simple-array (unsigned-byte 8) (*)) data)
                                           (optimize (speed 3)))

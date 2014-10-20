@@ -18,6 +18,7 @@
   :license "MIT"
   :depends-on (:cl-async
                :fast-http
+               :xsubseq
                :fast-io
                :chunga
                :trivial-utf-8
