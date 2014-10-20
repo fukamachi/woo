@@ -34,18 +34,6 @@ This library is still under development and considered ALPHA quality.
   :use-default-middlewares nil)
 ```
 
-## Run in parallel (experimental)
-
-Woo can work in parallel by specifying `:kernel-count` keyword argument to `woo:run`.
-
-```common-lisp
-(woo:run
-  (lambda (env)
-    (declare (ignore env))
-    '(200 (:content-type "text/plain") ("Hello, World")))
-  :kernel-count 4)
-```
-
 ## Benchmark
 
 Comparison of the server performance to return "Hello, World" for every requests. Here's the results of requests/sec scores.

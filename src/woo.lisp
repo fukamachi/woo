@@ -2,8 +2,6 @@
 (defpackage woo
   (:nicknames :clack.handler.woo)
   (:use :cl)
-  (:import-from :woo.tcp
-                :tcp-server-parallel)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-response-headers
@@ -60,9 +58,6 @@
                 :acquire-lock
                 :release-lock
                 :threadp)
-  (:import-from :lparallel
-                :*kernel*
-                :make-kernel)
   (:import-from :alexandria
                 :hash-table-plist
                 :copy-stream
@@ -71,25 +66,12 @@
            :stop))
 (in-package :woo)
 
-(cffi:define-foreign-library libevent2-pthreads
-  (:darwin (:or
-            "libevent_pthreads.dylib"
-            "/usr/local/lib/libevent_pthreads.dylib"
-            "/opt/local/lib/libevent_pthreads.dylib"))
-  (:unix (:or "/usr/local/lib/event2/libevent_pthreads.so"
-              "libevent_pthreads.so"
-              "libevent_pthreads-2.0.so.5"
-              "/usr/lib/libevent_pthreads.so"
-              "/usr/local/lib/libevent_pthreads.so"))
-  (t (:default "libevent_pthreads")))
-
 (defvar *app* nil)
 (defvar *debug* nil)
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0")
                   (use-thread #+thread-support t
-                              #-thread-support nil)
-                  (kernel-count 1))
+                              #-thread-support nil))
   (let ((server-started-lock (bt:make-lock "server-started"))
         (*app* app)
         (*debug* debug))
@@ -99,30 +81,10 @@
                               #'read-cb
                               #'event-cb
                               :connect-cb #'connect-cb)
-               (bt:release-lock server-started-lock)))
-           (start-server-multi ()
-             (as:with-event-loop (:catch-app-errors t)
-               (tcp-server-parallel address port
-                                    #'read-cb
-                                    #'event-cb
-                                    :connect-cb #'connect-cb)
                (bt:release-lock server-started-lock))))
-      (when (< 1 kernel-count)
-        #+unix
-        (cffi:use-foreign-library libevent2-pthreads)
-        (as:enable-threading-support)
-        (setf lparallel:*kernel* (lparallel:make-kernel kernel-count
-                                                        :bindings `((*app* . ,*app*)
-                                                                    (*debug* . ,*debug*)))))
-      (prog1
-          (let ((start-fn (if (< 1 kernel-count)
-                              #'start-server-multi
-                              #'start-server))
-                (bt:*default-special-bindings* `((*app* . ,app)
-                                                 (*debug* . ,debug))))
-            (if use-thread
-                (bt:make-thread start-fn)
-                (funcall start-fn)))
+      (prog1 (if use-thread
+                 (bt:make-thread #'start-server)
+                 (funcall #'start-server))
         (bt:acquire-lock server-started-lock t)
         (sleep 0.05)))))
 
