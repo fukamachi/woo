@@ -71,7 +71,8 @@
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0")
                   (use-thread #+thread-support t
-                              #-thread-support nil))
+                              #-thread-support nil)
+                  (worker-num nil))
   (let ((server-started-lock (bt:make-lock "server-started"))
         (*app* app)
         (*debug* debug))
@@ -81,10 +82,35 @@
                               #'read-cb
                               #'event-cb
                               :connect-cb #'connect-cb)
+               (bt:release-lock server-started-lock)))
+           #-windows
+           (start-server-multi ()
+             (as:with-event-loop (:catch-app-errors t)
+               (as:tcp-server address port
+                              #'read-cb
+                              #'event-cb
+                              :connect-cb #'connect-cb)
+               (let ((times worker-num))
+                 (tagbody forking
+                    (let ((pid #+sbcl (sb-posix:fork)
+                               #-sbcl (osicat-posix:fork)))
+                      (if (zerop pid)
+                          (progn
+                            (le:event-reinit (as::event-base-c as::*event-base*))
+                            (unless (zerop (decf times))
+                              (go forking)))
+                          (progn
+                            (le:event-reinit (as::event-base-c as::*event-base*))
+                            (format t "Worker started: ~A~%" pid))))))
                (bt:release-lock server-started-lock))))
-      (prog1 (if use-thread
-                 (bt:make-thread #'start-server)
-                 (funcall #'start-server))
+      (prog1 (let ((start-fn #-windows
+                             (if worker-num
+                                 #'start-server-multi
+                                 #'start-server)
+                             #+windows #'start-server))
+               (if (and (null worker-num) use-thread)
+                   (bt:make-thread start-fn)
+                   (funcall start-fn)))
         (bt:acquire-lock server-started-lock t)
         (sleep 0.05)))))
 

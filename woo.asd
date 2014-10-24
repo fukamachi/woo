@@ -26,6 +26,8 @@
                :bordeaux-threads
                :log4cl
                :local-time
+               :cl-libevent2
+               #-(or sbcl windows) osicat
                :alexandria)
   :components ((:module "src"
                 :components
