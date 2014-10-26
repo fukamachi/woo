@@ -107,7 +107,9 @@
                              (if worker-num
                                  #'start-server-multi
                                  #'start-server)
-                             #+windows #'start-server))
+                             #+windows #'start-server)
+                   (bt:*default-special-bindings* `((*app* . ,*app*)
+                                                    (*debug* . ,*debug*))))
                (if (and (null worker-num) use-thread)
                    (bt:make-thread start-fn)
                    (funcall start-fn)))
