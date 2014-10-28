@@ -19,6 +19,7 @@
   :depends-on (:cl-async
                :fast-http
                :xsubseq
+               :quri
                :fast-io
                :chunga
                :trivial-utf-8

@@ -8,9 +8,10 @@
                 :start-chunked-response
                 :finish-response)
   (:import-from :woo.url
-                :url-decode
-                :url-decoding-error
                 :parse-url)
+  (:import-from :quri
+                :url-decode
+                :url-decoding-error)
   (:import-from :fast-http
                 :make-ll-parser
                 :make-ll-callbacks
@@ -213,7 +214,7 @@
                       (when path-start
                         (setq url-path
                               (handler-case
-                                  (trivial-utf-8:utf-8-bytes-to-string (url-decode data path-start path-end))
+                                  (url-decode data :start path-start :end path-end)
                                 (url-decoding-error ()
                                   (trivial-utf-8:utf-8-bytes-to-string data
                                                                        :start path-start
