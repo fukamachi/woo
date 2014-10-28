@@ -243,8 +243,7 @@
                              (xnconcf header-value-collector
                                       (xsubseq data start end)))
              :headers-complete (lambda (parser)
-                                 (declare (type (simple-array (unsigned-byte 8) (*)) data)
-                                          (optimize (speed 3)))
+                                 (declare (optimize (speed 3)))
                                  (collect-prev-header-value)
                                  (setq version
                                        (http-version-keyword
@@ -387,7 +386,7 @@
                  (fast-io:with-fast-output (buffer :vector)
                    (loop with content-length = 0
                          for str in body
-                         do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str :encoding :utf-8)))
+                         do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str)))
                               (fast-io:fast-write-sequence bytes buffer)
                               (incf content-length (length bytes)))
                          finally
