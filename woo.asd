@@ -18,7 +18,6 @@
   :license "MIT"
   :depends-on (:cl-async
                :fast-http
-               :xsubseq
                :quri
                :fast-io
                :chunga
@@ -32,9 +31,8 @@
                :alexandria)
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("url" "response"))
-                 (:file "response")
-                 (:file "url"))))
+                ((:file "woo" :depends-on ("response"))
+                 (:file "response"))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
   #.(with-open-file (stream (merge-pathnames

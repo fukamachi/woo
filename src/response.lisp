@@ -1,9 +1,6 @@
 (in-package :cl-user)
 (defpackage woo.response
   (:use :cl)
-  (:import-from :fast-http
-                :make-http-response
-                :http-unparse)
   (:import-from :cl-async
                 :socket-data
                 :write-socket-data
@@ -21,12 +18,66 @@
            :finish-response))
 (in-package :woo.response)
 
+(defun status-code-to-text (code)
+  (cond
+    ((< code 200)
+     (ecase code
+       (100 "Continue")
+       (101 "Switching Protocols")))
+    ((< code 300)
+     (ecase code
+       (200 "OK")
+       (201 "Created")
+       (202 "Accepted")
+       (203 "Non-Authoritative Information")
+       (204 "No Content")
+       (205 "Reset Content")
+       (206 "Partial Content")))
+    ((< code 400)
+     (ecase code
+       (300 "Multiple Choices")
+       (301 "Moved Permanently")
+       (302 "Found")
+       (303 "See Other")
+       (304 "Not Modified")
+       (305 "Use Proxy")
+       (307 "Temporary Redirect")))
+    ((< code 500)
+     (ecase code
+       (400 "Bad Request")
+       (401 "Unauthorized")
+       (402 "Payment Required")
+       (403 "Forbidden")
+       (404 "Not Found")
+       (405 "Method Not Allowed")
+       (406 "Not Acceptable")
+       (407 "Proxy Authentication Required")
+       (408 "Request Time-out")
+       (409 "Conflict")
+       (410 "Gone")
+       (411 "Length Required")
+       (412 "Precondition Failed")
+       (413 "Request Entity Too Large")
+       (414 "Request-URI Too Large")
+       (415 "Unsupported Media Type")
+       (416 "Requested range not satisfiable")
+       (417 "Expectation Failed")))
+    ((<= 500 code)
+     (ecase code
+       (500 "Internal Server Error")
+       (501 "Not Implemented")
+       (502 "Bad Gateway")
+       (503 "Service Unavailable")
+       (504 "Gateway Time-out")
+       (505 "HTTP Version not supported")))
+    (T (error "Invalid status code: ~A" code))))
+
 (defvar *status-line* (make-hash-table :test 'eql))
 
 (defun http/1.1 (code)
   (format nil "HTTP/1.1 ~A ~A~C~C"
           code
-          (fast-http.unparser::status-code-to-text code)
+          (status-code-to-text code)
           #\Return
           #\Newline))
 

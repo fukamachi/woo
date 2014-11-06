@@ -151,7 +151,6 @@ Transfer/sec:      2.01MB
 ```
 git clone https://github.com/fukamachi/fast-http
 git clone https://github.com/fukamachi/quri
-git clone https://github.com/fukamachi/xsubseq
 git clone https://github.com/fukamachi/woo
 ```
 
