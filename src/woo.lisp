@@ -205,7 +205,7 @@
             :script-name ""
             :server-name server-name
             :server-port (or server-port 80)
-            :server-protocol (format nil "~D.~D" (http-major-version http) (http-minor-version http))
+            :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
             :path-info (uri-path uri)
             :query-string (uri-query uri)
             :url-scheme :http
