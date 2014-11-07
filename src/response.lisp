@@ -97,37 +97,44 @@
 (defvar *empty-bytes*
   #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
-(defvar +date-header-format+
-  (append
-   (list "Date: ")
-   local-time:+rfc-1123-format+
-   (list (format nil "~C~C" #\Return #\Newline))))
+(declaim (inline fast-write-string fast-write-crlf))
+
+(defun fast-write-string (string buffer)
+  (declare (optimize (speed 3) (safety 0)))
+  (loop for char of-type character across string
+        do (fast-io:fast-write-byte (char-code char) buffer)))
+
+(defun fast-write-crlf (buffer)
+  (declare (optimize (speed 3) (safety 0)))
+  (fast-io:fast-write-byte #.(char-code #\Return) buffer)
+  (fast-io:fast-write-byte #.(char-code #\Newline) buffer))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (as:write-socket-data
-   socket
-   (fast-io:with-fast-output (buffer :vector)
-     (fast-io:fast-write-sequence (gethash status *status-line*) buffer)
-     ;; Send default headers
-     (fast-io:fast-write-sequence (trivial-utf-8:string-to-utf-8-bytes
-                                   (local-time:format-timestring nil
-                                                                 (local-time:now)
-                                                                 :format +date-header-format+))
-                                  buffer)
-     (when keep-alive-p
-       (fast-io:fast-write-sequence
-        #.(trivial-utf-8:string-to-utf-8-bytes
-           (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
-        buffer))
+  (let ((fast-io:*default-output-buffer-size* 128))
+    (as:write-socket-data
+     socket
+     (fast-io:with-fast-output (buffer :vector)
+       (fast-io:fast-write-sequence (gethash status *status-line*) buffer)
+       ;; Send default headers
+       (fast-io:fast-write-sequence #.(trivial-utf-8:string-to-utf-8-bytes "Date: ") buffer)
+       (fast-write-string
+        (local-time:format-timestring nil
+                                      (local-time:now)
+                                      :format local-time:+rfc-1123-format+)
+        buffer)
+       (fast-write-crlf buffer)
 
-     (loop for (k v) on headers by #'cddr
-           when v
-             do (fast-io:fast-write-sequence
-                 (trivial-utf-8:string-to-utf-8-bytes (format nil "~:(~A~): ~A~C~C"
-                                                              k v #\Return #\Newline))
-                 buffer))
-     (fast-io:fast-write-byte (char-code #\Return) buffer)
-     (fast-io:fast-write-byte (char-code #\Newline) buffer))))
+       (when keep-alive-p
+         (fast-io:fast-write-sequence
+          #.(trivial-utf-8:string-to-utf-8-bytes
+             (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
+          buffer))
+
+       (loop for (k v) on headers by #'cddr
+             when v
+               do (fast-write-string (format nil "~:(~A~): ~A" k v) buffer)
+                  (fast-write-crlf buffer))
+       (fast-write-crlf buffer)))))
 
 (defun start-chunked-response (socket status headers)
   (write-response-headers socket status (append headers
