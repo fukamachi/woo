@@ -104,23 +104,30 @@
    (list (format nil "~C~C" #\Return #\Newline))))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (as:write-socket-data socket
-                        (gethash status *status-line*))
-  ;; Send default headers
-  (as:write-socket-data socket
-                        (local-time:format-timestring nil
-                                                      (local-time:now)
-                                                      :format +date-header-format+))
-  (when keep-alive-p
-    (as:write-socket-data socket
-                          #.(trivial-utf-8:string-to-utf-8-bytes
-                             (format nil "Connection: keep-alive~C~C" #\Return #\Newline))))
-  (loop for (k v) on headers by #'cddr
-        when v
-          do (as:write-socket-data socket
-                                   (format nil "~:(~A~): ~A~C~C"
-                                           k v #\Return #\Newline)))
-  (as:write-socket-data socket #.(trivial-utf-8:string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline))))
+  (as:write-socket-data
+   socket
+   (fast-io:with-fast-output (buffer :vector)
+     (fast-io:fast-write-sequence (gethash status *status-line*) buffer)
+     ;; Send default headers
+     (fast-io:fast-write-sequence (trivial-utf-8:string-to-utf-8-bytes
+                                   (local-time:format-timestring nil
+                                                                 (local-time:now)
+                                                                 :format +date-header-format+))
+                                  buffer)
+     (when keep-alive-p
+       (fast-io:fast-write-sequence
+        #.(trivial-utf-8:string-to-utf-8-bytes
+           (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
+        buffer))
+
+     (loop for (k v) on headers by #'cddr
+           when v
+             do (fast-io:fast-write-sequence
+                 (trivial-utf-8:string-to-utf-8-bytes (format nil "~:(~A~): ~A~C~C"
+                                                              k v #\Return #\Newline))
+                 buffer))
+     (fast-io:fast-write-byte (char-code #\Return) buffer)
+     (fast-io:fast-write-byte (char-code #\Newline) buffer))))
 
 (defun start-chunked-response (socket status headers)
   (write-response-headers socket status (append headers
