@@ -141,7 +141,6 @@
      (log:info event))))
 
 (define-condition woo-error (simple-error) ())
-(define-condition not-implemented-yet (woo-error) ())
 (define-condition invalid-http-version (woo-error) ())
 
 (defun http-version-keyword (major minor)
@@ -238,7 +237,8 @@
 
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
-        (close (string-equal (gethash "connection" (http-headers http)) "close")))
+        (close (or (= (http-minor-version http) 0)
+                   (string-equal (gethash "connection" (http-headers http)) "close"))))
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
       (when (eq body no-body)
@@ -305,13 +305,12 @@
                   (fast-write-crlf buffer)
                   (fast-write-crlf buffer)
                   (loop for str in body
-                        do (fast-write-sequence (string-to-utf-8-bytes str) buffer))))))))
-
-         (if close
-             (finish-response socket)
-             (setup-parser socket)))
+                        do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))))))
+          :write-cb (and close
+                         (lambda (socket)
+                           (setf (as:socket-data socket) nil)
+                           (as:close-socket socket)))))
         ((vector (unsigned-byte 8))
          (write-response-headers socket status headers (not close))
-         (if close
-             (finish-response socket body)
-             (setup-parser socket)))))))
+         (when close
+           (finish-response socket body)))))))
