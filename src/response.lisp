@@ -9,10 +9,20 @@
   (:import-from :chunga
                 :make-chunked-stream
                 :chunked-stream-output-chunking-p )
+  (:import-from :fast-io
+                :with-fast-output
+                :fast-write-sequence
+                :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes)
+  (:import-from :local-time
+                :now
+                :format-timestring
+                :+rfc-1123-format+)
   (:export :*empty-chunk*
            :*empty-bytes*
+           :fast-write-crlf
+           :response-headers-bytes
            :write-response-headers
            :start-chunked-response
            :finish-response))
@@ -102,39 +112,39 @@
 (defun fast-write-string (string buffer)
   (declare (optimize (speed 3) (safety 0)))
   (loop for char of-type character across string
-        do (fast-io:fast-write-byte (char-code char) buffer)))
+        do (fast-write-byte (char-code char) buffer)))
 
 (defun fast-write-crlf (buffer)
   (declare (optimize (speed 3) (safety 0)))
-  (fast-io:fast-write-byte #.(char-code #\Return) buffer)
-  (fast-io:fast-write-byte #.(char-code #\Newline) buffer))
+  (fast-write-byte #.(char-code #\Return) buffer)
+  (fast-write-byte #.(char-code #\Newline) buffer))
+
+(defun response-headers-bytes (buffer status headers &optional keep-alive-p)
+  (fast-write-sequence (gethash status *status-line*) buffer)
+  ;; Send default headers
+  (fast-write-sequence #.(string-to-utf-8-bytes "Date: ") buffer)
+  (fast-write-string
+   (format-timestring nil (now) :format +rfc-1123-format+)
+   buffer)
+  (fast-write-crlf buffer)
+
+  (when keep-alive-p
+    (fast-write-sequence
+     #.(string-to-utf-8-bytes
+        (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
+     buffer))
+
+  (loop for (k v) on headers by #'cddr
+        when v
+          do (fast-write-string (format nil "~:(~A~): ~A" k v) buffer)
+             (fast-write-crlf buffer)))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (let ((fast-io:*default-output-buffer-size* 128))
-    (as:write-socket-data
-     socket
-     (fast-io:with-fast-output (buffer :vector)
-       (fast-io:fast-write-sequence (gethash status *status-line*) buffer)
-       ;; Send default headers
-       (fast-io:fast-write-sequence #.(trivial-utf-8:string-to-utf-8-bytes "Date: ") buffer)
-       (fast-write-string
-        (local-time:format-timestring nil
-                                      (local-time:now)
-                                      :format local-time:+rfc-1123-format+)
-        buffer)
-       (fast-write-crlf buffer)
-
-       (when keep-alive-p
-         (fast-io:fast-write-sequence
-          #.(trivial-utf-8:string-to-utf-8-bytes
-             (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
-          buffer))
-
-       (loop for (k v) on headers by #'cddr
-             when v
-               do (fast-write-string (format nil "~:(~A~): ~A" k v) buffer)
-                  (fast-write-crlf buffer))
-       (fast-write-crlf buffer)))))
+  (as:write-socket-data
+   socket
+   (with-fast-output (buffer :vector)
+     (response-headers-bytes buffer status headers keep-alive-p)
+     (fast-write-crlf buffer))))
 
 (defun start-chunked-response (socket status headers)
   (write-response-headers socket status (append headers

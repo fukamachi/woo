@@ -4,6 +4,8 @@
   (:use :cl)
   (:import-from :woo.response
                 :*empty-chunk*
+                :fast-write-crlf
+                :response-headers-bytes
                 :write-response-headers
                 :start-chunked-response
                 :finish-response)
@@ -37,10 +39,12 @@
                 :make-output-buffer
                 :finish-output-buffer
                 :with-fast-output
-                :fast-write-sequence)
+                :fast-write-sequence
+                :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes
-                :utf-8-bytes-to-string)
+                :utf-8-bytes-to-string
+                :utf-8-byte-length)
   (:import-from :flexi-streams
                 :make-in-memory-output-stream)
   (:import-from :bordeaux-threads
@@ -136,18 +140,18 @@
     (T
      (log:info event))))
 
+(define-condition woo-error (simple-error) ())
+(define-condition not-implemented-yet (woo-error) ())
+(define-condition invalid-http-version (woo-error) ())
+
 (defun http-version-keyword (major minor)
-  (cond
-    ((= major 1)
-     (cond
-       ((= minor 1) :HTTP/1.1)
-       ((= minor 0) :HTTP/1.0)
-       (T (intern (format nil "HTTP/1.~A" minor) :keyword))))
-    ((= major 2)
-     (cond
-       ((= minor 0) :HTTP/2.0)
-       (T (intern (format nil "HTTP/2.~A" minor) :keyword))))
-    (T (intern (format nil "HTTP/~A.~A" major minor) :keyword))))
+  (unless (= major 1)
+    (error 'invalid-http-version))
+
+  (case minor
+    (1 :HTTP/1.1)
+    (0 :HTTP/1.0)
+    (otherwise (error 'invalid-http-version))))
 
 (defun setup-parser (socket)
   (let ((http (make-http-request))
@@ -262,22 +266,46 @@
                     (force-output stream)
                     (finish-response socket *empty-chunk*)))
         (list
-         (setf body
-               (fast-io:with-fast-output (buffer :vector)
-                 (loop with content-length = 0
-                       for str in body
-                       do (let ((bytes (trivial-utf-8:string-to-utf-8-bytes str)))
-                            (fast-io:fast-write-sequence bytes buffer)
-                            (incf content-length (length bytes)))
-                       finally
-                          (unless (getf headers :content-length)
-                            (setf headers
-                                  (append headers
-                                          (list :content-length content-length)))))))
-
-         (write-response-headers socket status headers (not close))
-
-         (as:write-socket-data socket body)
+         (as:write-socket-data
+          socket
+          (with-fast-output (buffer :vector)
+            (cond
+              ((getf headers :content-length)
+               (response-headers-bytes buffer status headers (not close))
+               (fast-write-crlf buffer)
+               (loop for str in body
+                     do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))
+              (T
+               (cond
+                 ((= (http-minor-version http) 1)
+                  ;; Transfer-Encoding: chunked
+                  (response-headers-bytes buffer status headers (not close))
+                  (fast-write-sequence #.(string-to-utf-8-bytes "Transfer-Encoding: chunked") buffer)
+                  (fast-write-crlf buffer)
+                  (fast-write-crlf buffer)
+                  (loop for str in body
+                        do (fast-write-sequence
+                            (string-to-utf-8-bytes (format nil "~X" (utf-8-byte-length str)))
+                            buffer)
+                           (fast-write-crlf buffer)
+                           (fast-write-sequence (string-to-utf-8-bytes str) buffer)
+                           (fast-write-crlf buffer))
+                  (fast-write-byte #.(char-code #\0) buffer)
+                  (fast-write-crlf buffer)
+                  (fast-write-crlf buffer))
+                 (T
+                  ;; calculate Content-Length
+                  (response-headers-bytes buffer status headers (not close))
+                  (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
+                  (fast-write-sequence
+                   (string-to-utf-8-bytes
+                    (princ-to-string (loop for str in body
+                                           sum (utf-8-byte-length str))))
+                   buffer)
+                  (fast-write-crlf buffer)
+                  (fast-write-crlf buffer)
+                  (loop for str in body
+                        do (fast-write-sequence (string-to-utf-8-bytes str) buffer))))))))
 
          (if close
              (finish-response socket)
