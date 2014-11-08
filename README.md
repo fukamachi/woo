@@ -50,7 +50,7 @@ The benchmarking environment is:
 
 * MacBook Pro Retina, 13-inch, Early 2013 (CPU: 3GHz Intel Core i7 / Memory: 8GB 1600 MHz)
 * wrk 3.1.1
-* SBCL 1.2.4
+* SBCL 1.2.5
 * Node.js 0.10.21
 * Ruby 2.1.1
 * Quicklisp 2014-10-06
@@ -112,23 +112,6 @@ Requests/sec:   7293.43
 Transfer/sec:    819.09KB
 ```
 
-### Woo (Common Lisp)
-
-```
-$ sbcl --load benchmark/woo.lisp
-```
-
-```
-Running 5s test @ http://127.0.0.1:5000
-  5 threads and 15 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     0.97ms  303.02us   6.19ms   91.49%
-    Req/Sec     3.28k   430.03     4.00k    78.71%
-  76101 requests in 5.00s, 8.27MB read
-Requests/sec:  15229.29
-Transfer/sec:      1.66MB
-```
-
 ### Node.js http module
 
 ```
@@ -146,9 +129,28 @@ Requests/sec:  16193.35
 Transfer/sec:      2.01MB
 ```
 
+### Woo (Common Lisp)
+
+```
+$ sbcl --load benchmark/woo.lisp
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  5 threads and 15 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     0.87ms  416.97us   9.01ms   99.24%
+    Req/Sec     3.64k   383.08     4.22k    91.95%
+  172029 requests in 10.00s, 21.66MB read
+Requests/sec:  17206.17
+Transfer/sec:      2.17MB
+```
+
 ## Installation
 
 ```
+cd ~/common-lisp
+git clone https://github.com/fukamachi/xsubseq
 git clone https://github.com/fukamachi/fast-http
 git clone https://github.com/fukamachi/quri
 git clone https://github.com/fukamachi/woo
