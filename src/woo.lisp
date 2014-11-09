@@ -158,8 +158,8 @@
     (setf (as:socket-data socket)
           (make-parser http
                        :body-callback
-                       (lambda (data)
-                         (fast-write-sequence data body-buffer))
+                       (lambda (data start end)
+                         (fast-write-sequence data body-buffer start end))
                        :finish-callback
                        (lambda ()
                          (let ((env (nconc (list :raw-body
@@ -199,7 +199,8 @@
 
 (defun handle-request (http socket)
   (let ((uri (quri:uri (http-resource http)))
-        (host (gethash "host" (http-headers http))))
+        (host (gethash "host" (http-headers http)))
+        (headers (http-headers http)))
     (multiple-value-bind (server-name server-port)
         (if host
             (parse-host-header host)
@@ -209,14 +210,16 @@
             :server-name server-name
             :server-port (or server-port 80)
             :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
-            :path-info (uri-path uri)
+            :path-info (quri:url-decode (uri-path uri))
             :query-string (uri-query uri)
             :url-scheme :http
             :request-uri (http-resource http)
             :clack.streaming t
             :clack.nonblocking t
             :clack.io socket
-            :headers (http-headers http)))))
+            :content-length (gethash "content-length" headers)
+            :content-type (gethash "content-type" headers)
+            :headers headers))))
 
 
 ;;
