@@ -159,7 +159,10 @@
           (make-parser http
                        :body-callback
                        (lambda (data start end)
-                         (fast-write-sequence data body-buffer start end))
+                         (declare (type (simple-array (unsigned-byte 8) (*)) data))
+                         (do ((i start (1+ i)))
+                             ((= end i))
+                           (fast-write-byte (aref data i) body-buffer)))
                        :finish-callback
                        (lambda ()
                          (let ((env (nconc (list :raw-body
