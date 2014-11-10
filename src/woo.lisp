@@ -166,6 +166,7 @@
                                                  (flex:make-in-memory-input-stream
                                                   (fast-io::finish-output-buffer body-buffer)))
                                            (handle-request http socket))))
+                           (setq body-buffer (fast-io::make-output-buffer))
                            (handle-response http socket
                                             (if *debug*
                                                 (funcall *app* env)
