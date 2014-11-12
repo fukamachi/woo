@@ -5,6 +5,7 @@
   (:import-from :woo.response
                 :*empty-chunk*
                 :fast-write-crlf
+                :fast-write-string
                 :response-headers-bytes
                 :write-response-headers
                 :start-chunked-response
@@ -300,11 +301,10 @@
                   (fast-write-crlf buffer)
                   (fast-write-crlf buffer)
                   (loop for str in body
-                        do (fast-write-sequence
-                            (string-to-utf-8-bytes (format nil "~X" (utf-8-byte-length str)))
-                            buffer)
+                        for data = (string-to-utf-8-bytes str)
+                        do (fast-write-string (format nil "~X" (length data)) buffer)
                            (fast-write-crlf buffer)
-                           (fast-write-sequence (string-to-utf-8-bytes str) buffer)
+                           (fast-write-sequence data buffer)
                            (fast-write-crlf buffer))
                   (fast-write-byte #.(char-code #\0) buffer)
                   (fast-write-crlf buffer)
