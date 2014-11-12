@@ -190,40 +190,49 @@
 ;; Handling requests
 
 (defun parse-host-header (host)
+  (declare (type simple-string host)
+           (optimize (speed 3) (safety 0)))
   (let ((pos (position #\: host :from-end t)))
     (unless pos
       (return-from parse-host-header
         (values host nil)))
 
-    (let ((port (subseq host (1+ pos))))
-      (if (every #'digit-char-p port)
-          (values (subseq host 0 pos)
-                  (read-from-string port))
-          (values host nil)))))
+    (locally (declare (type fixnum pos))
+      (let ((port (subseq host (1+ pos))))
+        (declare (type simple-string port))
+        (if (every #'digit-char-p port)
+            (values (subseq host 0 pos)
+                    (read-from-string port))
+            (values host nil))))))
 
 (defun handle-request (http socket)
-  (let ((uri (quri:uri (http-resource http)))
-        (host (gethash "host" (http-headers http)))
-        (headers (http-headers http)))
-    (multiple-value-bind (server-name server-port)
-        (if host
-            (parse-host-header host)
-            (values nil nil))
-      (list :request-method (http-method http)
-            :script-name ""
-            :server-name server-name
-            :server-port (or server-port 80)
-            :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
-            :path-info (quri:url-decode (uri-path uri))
-            :query-string (uri-query uri)
-            :url-scheme :http
-            :request-uri (http-resource http)
-            :clack.streaming t
-            :clack.nonblocking t
-            :clack.io socket
-            :content-length (gethash "content-length" headers)
-            :content-type (gethash "content-type" headers)
-            :headers headers))))
+  (let ((host (gethash "host" (http-headers http)))
+        (headers (http-headers http))
+        (uri (http-resource http)))
+    (declare (type simple-string uri))
+
+    (multiple-value-bind (scheme userinfo hostname port path query fragment)
+        (quri:parse-uri uri)
+      (declare (ignore scheme userinfo hostname port fragment))
+      (multiple-value-bind (server-name server-port)
+          (if (stringp host)
+              (parse-host-header host)
+              (values nil nil))
+        (list :request-method (http-method http)
+              :script-name ""
+              :server-name server-name
+              :server-port (or server-port 80)
+              :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
+              :path-info (and path (quri:url-decode path))
+              :query-string query
+              :url-scheme :http
+              :request-uri uri
+              :clack.streaming t
+              :clack.nonblocking t
+              :clack.io socket
+              :content-length (gethash "content-length" headers)
+              :content-type (gethash "content-type" headers)
+              :headers headers)))))
 
 
 ;;
