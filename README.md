@@ -84,15 +84,15 @@ $ sbcl --load benchmark/hunchentoot.lisp
 ```
 
 ```
-Running 5s test @ http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
   5 threads and 15 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   150.77us   86.97us   3.83ms   99.61%
-    Req/Sec     6.57k   612.06     7.33k    65.92%
-  30260 requests in 6.00s, 4.53MB read
-  Socket errors: connect 0, read 0, write 0, timeout 35
-Requests/sec:   5042.76
-Transfer/sec:    773.16KB
+    Latency   145.61us  103.05us   6.53ms   99.78%
+    Req/Sec     6.71k   524.02     7.22k    95.05%
+  61941 requests in 10.01s, 9.27MB read
+  Socket errors: connect 0, read 0, write 0, timeout 66
+Requests/sec:   6187.44
+Transfer/sec:      0.93MB
 ```
 
 ### Wookie (Common Lisp)
@@ -119,14 +119,14 @@ $ node benchmark/node.js
 ```
 
 ```
-Running 5s test @ http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
   5 threads and 15 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     0.94ms  198.93us   6.11ms   70.59%
-    Req/Sec     3.42k   588.23     4.89k    71.14%
-  80950 requests in 5.00s, 10.04MB read
-Requests/sec:  16193.35
-Transfer/sec:      2.01MB
+    Latency     1.04ms   57.89us   4.14ms   91.61%
+    Req/Sec     2.99k   107.88     3.22k    74.88%
+  142136 requests in 10.00s, 17.62MB read
+Requests/sec:  14214.06
+Transfer/sec:      1.76MB
 ```
 
 ### Woo (Common Lisp)
@@ -136,14 +136,14 @@ $ sbcl --load benchmark/woo.lisp
 ```
 
 ```
-Running 10s test @ http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5001
   5 threads and 15 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     0.87ms  416.97us   9.01ms   99.24%
-    Req/Sec     3.64k   383.08     4.22k    91.95%
-  172029 requests in 10.00s, 21.66MB read
-Requests/sec:  17206.17
-Transfer/sec:      2.17MB
+    Latency   725.71us  205.02us   5.94ms   94.79%
+    Req/Sec     4.32k   341.43     4.89k    73.64%
+  202708 requests in 10.00s, 25.52MB read
+Requests/sec:  20271.79
+Transfer/sec:      2.55MB
 ```
 
 ## Installation
