@@ -327,6 +327,17 @@
                            (setf (as:socket-data socket) nil)
                            (as:close-socket socket)))))
         ((vector (unsigned-byte 8))
-         (write-response-headers socket status headers (not close))
-         (when close
-           (finish-response socket body)))))))
+         (as:write-socket-data
+          socket
+          (with-fast-output (buffer :vector)
+            (response-headers-bytes buffer status headers (not close))
+            (unless (getf headers :content-length)
+              (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
+              (fast-write-string (write-to-string (length body)) buffer )
+              (fast-write-crlf buffer))
+            (fast-write-crlf buffer)
+            (fast-write-sequence body buffer))
+          :write-cb (and close
+                         (lambda (socket)
+                           (setf (as:socket-data socket) nil)
+                           (as:close-socket socket)))))))))
