@@ -313,10 +313,9 @@
                   ;; calculate Content-Length
                   (response-headers-bytes buffer status headers (not close))
                   (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
-                  (fast-write-sequence
-                   (string-to-utf-8-bytes
-                    (princ-to-string (loop for str in body
-                                           sum (utf-8-byte-length str))))
+                  (fast-write-string
+                   (write-to-string (loop for str in body
+                                          sum (utf-8-byte-length str)))
                    buffer)
                   (fast-write-crlf buffer)
                   (fast-write-crlf buffer)
