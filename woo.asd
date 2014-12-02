@@ -23,7 +23,6 @@
                :chunga
                :trivial-utf-8
                :flexi-streams
-               :bordeaux-threads
                :log4cl
                :local-time
                :cl-libevent2

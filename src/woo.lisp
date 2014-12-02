@@ -48,13 +48,6 @@
                 :utf-8-byte-length)
   (:import-from :flexi-streams
                 :make-in-memory-output-stream)
-  (:import-from :bordeaux-threads
-                :make-thread
-                :destroy-thread
-                :make-lock
-                :acquire-lock
-                :release-lock
-                :threadp)
   (:import-from :alexandria
                 :hash-table-plist
                 :copy-stream
@@ -66,20 +59,15 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0")
-                  (use-thread #+thread-support t
-                              #-thread-support nil)
-                  (worker-num nil))
-  (let ((server-started-lock (bt:make-lock "server-started"))
-        (*app* app)
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (worker-num nil))
+  (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
              (as:with-event-loop (:catch-app-errors t)
                (as:tcp-server address port
                               #'read-cb
                               #'event-cb
-                              :connect-cb #'connect-cb)
-               (bt:release-lock server-started-lock)))
+                              :connect-cb #'connect-cb)))
            #-windows
            (start-server-multi ()
              (as:with-event-loop (:catch-app-errors t)
@@ -98,20 +86,13 @@
                               (go forking)))
                           (progn
                             (le:event-reinit (as::event-base-c as::*event-base*))
-                            (format t "Worker started: ~A~%" pid))))))
-               (bt:release-lock server-started-lock))))
-      (prog1 (let ((start-fn #-windows
-                             (if worker-num
-                                 #'start-server-multi
-                                 #'start-server)
-                             #+windows #'start-server)
-                   (bt:*default-special-bindings* `((*app* . ,*app*)
-                                                    (*debug* . ,*debug*))))
-               (if (and (null worker-num) use-thread)
-                   (bt:make-thread start-fn)
-                   (funcall start-fn)))
-        (bt:acquire-lock server-started-lock t)
-        (sleep 0.05)))))
+                            (format t "Worker started: ~A~%" pid)))))))))
+      (let ((start-fn #-windows
+                      (if worker-num
+                          #'start-server-multi
+                          #'start-server)
+                      #+windows #'start-server))
+        (funcall start-fn)))))
 
 (defun connect-cb (socket)
   (setup-parser socket))
@@ -182,9 +163,7 @@
                                                   '(500 nil nil))))))))))
 
 (defun stop (server)
-  (if (bt:threadp server)
-      (bt:destroy-thread server)
-      (as:close-tcp-server server)))
+  (as:close-tcp-server server))
 
 
 ;;
