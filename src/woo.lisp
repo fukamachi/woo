@@ -69,7 +69,8 @@
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0")
                   (use-thread #+thread-support t
                               #-thread-support nil)
-                  (worker-num nil))
+                  (worker-num nil)
+                  fd)
   (let ((server-started-lock (bt:make-lock "server-started"))
         (*app* app)
         (*debug* debug))
@@ -78,7 +79,8 @@
                (as:tcp-server address port
                               #'read-cb
                               #'event-cb
-                              :connect-cb #'connect-cb)
+                              :connect-cb #'connect-cb
+                              :fd fd)
                (bt:release-lock server-started-lock)))
            #-windows
            (start-server-multi ()
