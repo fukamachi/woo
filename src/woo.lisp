@@ -59,7 +59,7 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (worker-num nil))
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (worker-num nil) fd)
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
@@ -67,7 +67,8 @@
                (as:tcp-server address port
                               #'read-cb
                               #'event-cb
-                              :connect-cb #'connect-cb)))
+                              :connect-cb #'connect-cb
+                              :fd fd)))
            #-windows
            (start-server-multi ()
              (as:with-event-loop (:catch-app-errors t)
