@@ -162,7 +162,6 @@ git clone https://github.com/fukamachi/woo
 
 ## TODO
 
-* HTTP/1.0
 * SSL
 * Make it faster, more scalable
 
