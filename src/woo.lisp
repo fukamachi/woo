@@ -32,6 +32,7 @@
                 :with-event-loop
                 :tcp-server
                 :close-tcp-server
+                :signal-handler
                 :tcp-info
                 :tcp-error
                 :tcp-eof
@@ -71,23 +72,41 @@
                               :fd fd)))
            #-windows
            (start-server-multi ()
-             (as:with-event-loop (:catch-app-errors t)
-               (as:tcp-server address port
-                              #'read-cb
-                              #'event-cb
-                              :connect-cb #'connect-cb)
-               (let ((times worker-num))
-                 (tagbody forking
-                    (let ((pid #+sbcl (sb-posix:fork)
-                               #-sbcl (osicat-posix:fork)))
-                      (if (zerop pid)
-                          (progn
-                            (le:event-reinit (as::event-base-c as::*event-base*))
-                            (unless (zerop (decf times))
-                              (go forking)))
-                          (progn
-                            (le:event-reinit (as::event-base-c as::*event-base*))
-                            (format t "Worker started: ~A~%" pid)))))))))
+             (let (socket)
+               (as:with-event-loop (:catch-app-errors t)
+                 (setq socket
+                       (as:tcp-server address port
+                                      #'read-cb
+                                      #'event-cb
+                                      :connect-cb #'connect-cb))
+                 (as:signal-handler 2
+                                    (lambda (sig)
+                                      (declare (ignore sig))
+                                      (format *error-output* "SIGINT~%")
+                                      (as:close-tcp-server socket)
+                                      #+sbcl
+                                      (sb-ext:exit)
+                                      #-sbcl
+                                      (cl-user:quit)))
+                 (let ((times worker-num))
+                   (tagbody forking
+                      (let ((pid #+sbcl (sb-posix:fork)
+                                 #-sbcl (osicat-posix:fork)))
+                        (if (zerop pid)
+                            (progn
+                              (le:event-reinit (as::event-base-c as::*event-base*))
+                              (unless (zerop (decf times))
+                                (go forking)))
+                            (progn
+                              (le:event-reinit (as::event-base-c as::*event-base*))
+                              (as:signal-handler 2
+                                                 (lambda (sig)
+                                                   (declare (ignore sig))
+                                                   #+sbcl
+                                                   (sb-ext:exit)
+                                                   #-sbcl
+                                                   (cl-user:quit)))
+                              (format t "Worker started: ~A~%" pid))))))))))
       (let ((start-fn #-windows
                       (if worker-num
                           #'start-server-multi
