@@ -15,10 +15,6 @@
                 :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes)
-  (:import-from :local-time
-                :now
-                :format-timestring
-                :+rfc-1123-format+)
   (:export :*empty-chunk*
            :*empty-bytes*
            :fast-write-crlf
@@ -128,7 +124,44 @@
            (optimize (speed 3) (safety 0)))
   (the character (code-char (+ 48 int))))
 
-(defun format-rfc-1123-timestamp (timestamp)
+(defun current-time ()
+  (declare (optimize (speed 3) (safety 0)))
+  (flet ((timezone-offset (unix-time timezone)
+           (declare (type fixnum unix-time))
+           (let* ((zone (local-time::%realize-timezone timezone))
+                  (subzone-idx (if (zerop (length (local-time::timezone-indexes zone)))
+                                   0
+                                   (elt (local-time::timezone-indexes zone)
+                                        (local-time::transition-position unix-time
+                                                                         (local-time::timezone-transitions zone)))))
+                  (subzone (svref (local-time::timezone-subzones zone) subzone-idx)))
+             (declare (type fixnum subzone-idx))
+             (local-time::subzone-offset subzone))))
+    (let* ((timezone local-time:*default-timezone*)
+           (sec (local-time::%get-current-time))
+           (offset (timezone-offset sec timezone)))
+      (declare (type fixnum sec))
+      (multiple-value-bind (days secs)
+          (floor (the (unsigned-byte 64) sec) local-time:+seconds-per-day+)
+        (decf days 11017)
+        (multiple-value-bind (adjusted-secs adjusted-days)
+            (local-time::%adjust-to-offset secs days offset)
+          (declare (type fixnum adjusted-secs adjusted-days))
+          (multiple-value-bind (hours minutes seconds)
+              (local-time::%timestamp-decode-time adjusted-secs)
+            (multiple-value-bind (year month day)
+                (local-time::%timestamp-decode-date adjusted-days)
+              (values
+               seconds
+               minutes
+               hours
+               day
+               month
+               year
+               (mod (the (unsigned-byte 64) (+ 3 adjusted-days)) 7)
+               offset))))))))
+
+(defun current-rfc-1123-timestamp ()
   (declare (optimize (speed 3) (safety 0)))
   (macrolet ((write-date (val start &optional (len '*))
                `(replace *date-header*
@@ -146,9 +179,8 @@
                         (floor ,val 10)
                       (write-char-to-date (integer-to-character quotient) ,start)
                       (write-char-to-date (integer-to-character remainder) ,(1+ start))))))
-    (multiple-value-bind (nsec sec minute hour day month year weekday daylight-p offset abbrev)
-        (local-time:decode-timestamp timestamp)
-      (declare (ignore abbrev daylight-p nsec))
+    (multiple-value-bind (sec minute hour day month year weekday offset)
+        (current-time)
       (write-date (svref local-time::+short-day-names+ weekday) 0 3)
       (write-date ", " 3 2)
       (write-int-to-date day 5)
@@ -186,7 +218,7 @@
   (fast-write-sequence (gethash status *status-line*) buffer)
   ;; Send default headers
   (fast-write-sequence #.(string-to-utf-8-bytes "Date: ") buffer)
-  (fast-write-string (format-rfc-1123-timestamp (now)) buffer)
+  (fast-write-string (current-rfc-1123-timestamp) buffer)
   (fast-write-crlf buffer)
 
   (when keep-alive-p
