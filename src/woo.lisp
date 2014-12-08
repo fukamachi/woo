@@ -4,12 +4,14 @@
   (:use :cl)
   (:import-from :woo.response
                 :*empty-chunk*
-                :fast-write-crlf
-                :fast-write-string
                 :response-headers-bytes
                 :write-response-headers
                 :start-chunked-response
-                :finish-response)
+                :finish-response
+                :with-evbuffer
+                :write-octets-to-evbuffer
+                :write-ascii-string-to-evbuffer
+                :write-crlf-to-evbuffer)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -40,8 +42,6 @@
   (:import-from :fast-io
                 :make-output-buffer
                 :finish-output-buffer
-                :with-fast-output
-                :fast-write-sequence
                 :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes
@@ -282,60 +282,58 @@
                     (force-output stream)
                     (finish-response socket *empty-chunk*)))
         (list
-         (as:write-socket-data
-          socket
-          (with-fast-output (buffer :vector)
+         (cond
+           ((getf headers :content-length)
+            (with-evbuffer (evbuffer socket
+                                     :write-cb (and close
+                                                    (lambda (socket)
+                                                      (setf (as:socket-data socket) nil)
+                                                      (as:close-socket socket))))
+              (response-headers-bytes evbuffer status headers (not close))
+              (write-crlf-to-evbuffer evbuffer)
+              (loop for str in body
+                    do (write-octets-to-evbuffer (string-to-utf-8-bytes str) evbuffer))))
+           (T
             (cond
-              ((getf headers :content-length)
-               (response-headers-bytes buffer status headers (not close))
-               (fast-write-crlf buffer)
-               (loop for str in body
-                     do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))
+              ((= (http-minor-version http) 1)
+               ;; Transfer-Encoding: chunked
+               (with-evbuffer (evbuffer socket
+                                        :write-cb (and close
+                                                       (lambda (socket)
+                                                         (setf (as:socket-data socket) nil)
+                                                         (as:close-socket socket))))
+                 (response-headers-bytes evbuffer status headers (not close))
+                 (write-octets-to-evbuffer #.(string-to-utf-8-bytes "Transfer-Encoding: chunked") evbuffer)
+                 (write-crlf-to-evbuffer evbuffer)
+                 (write-crlf-to-evbuffer evbuffer)
+                 (loop for str in body
+                       for data = (string-to-utf-8-bytes str)
+                       do (write-ascii-string-to-evbuffer (format nil "~X" (length data)) evbuffer)
+                          (write-crlf-to-evbuffer evbuffer)
+                          (write-octets-to-evbuffer data evbuffer)
+                          (write-crlf-to-evbuffer evbuffer))
+                 (write-octets-to-evbuffer *empty-chunk* evbuffer)))
               (T
-               (cond
-                 ((= (http-minor-version http) 1)
-                  ;; Transfer-Encoding: chunked
-                  (response-headers-bytes buffer status headers (not close))
-                  (fast-write-sequence #.(string-to-utf-8-bytes "Transfer-Encoding: chunked") buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer)
-                  (loop for str in body
-                        for data = (string-to-utf-8-bytes str)
-                        do (fast-write-string (format nil "~X" (length data)) buffer)
-                           (fast-write-crlf buffer)
-                           (fast-write-sequence data buffer)
-                           (fast-write-crlf buffer))
-                  (fast-write-byte #.(char-code #\0) buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer))
-                 (T
-                  ;; calculate Content-Length
-                  (response-headers-bytes buffer status headers (not close))
-                  (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
-                  (fast-write-string
-                   (write-to-string (loop for str in body
-                                          sum (utf-8-byte-length str)))
-                   buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer)
-                  (loop for str in body
-                        do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))))))
-          :write-cb (and close
-                         (lambda (socket)
-                           (setf (as:socket-data socket) nil)
-                           (as:close-socket socket)))))
+               ;; calculate Content-Length
+               (with-evbuffer (evbuffer socket)
+                 (response-headers-bytes evbuffer status headers (not close))
+                 (write-ascii-string-to-evbuffer #.(string-to-utf-8-bytes "Content-Length: ") evbuffer)
+                 (write-ascii-string-to-evbuffer (write-to-string (loop for str in body
+                                                                        sum (utf-8-byte-length str)))
+                                                 evbuffer)
+                 (write-crlf-to-evbuffer evbuffer)
+                 (write-crlf-to-evbuffer evbuffer)
+                 (loop for str in body
+                       do (write-octets-to-evbuffer (string-to-utf-8-bytes str) evbuffer))))))))
         ((vector (unsigned-byte 8))
-         (as:write-socket-data
-          socket
-          (with-fast-output (buffer :vector)
-            (response-headers-bytes buffer status headers (not close))
-            (unless (getf headers :content-length)
-              (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
-              (fast-write-string (write-to-string (length body)) buffer )
-              (fast-write-crlf buffer))
-            (fast-write-crlf buffer)
-            (fast-write-sequence body buffer))
-          :write-cb (and close
-                         (lambda (socket)
-                           (setf (as:socket-data socket) nil)
-                           (as:close-socket socket)))))))))
+         (with-evbuffer (evbuffer socket
+                                  :write-cb (and close
+                                                 (lambda (socket)
+                                                   (setf (as:socket-data socket) nil)
+                                                   (as:close-socket socket))))
+           (response-headers-bytes evbuffer status headers (not close))
+           (unless (getf headers :content-length)
+             (write-octets-to-evbuffer #.(string-to-utf-8-bytes "Content-Length: ") evbuffer)
+             (write-ascii-string-to-evbuffer (write-to-string (length body)) evbuffer))
+           (write-crlf-to-evbuffer evbuffer)
+           (write-octets-to-evbuffer body evbuffer)))))))
