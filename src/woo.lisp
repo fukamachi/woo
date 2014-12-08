@@ -198,11 +198,18 @@
         (values host nil)))
 
     (locally (declare (type fixnum pos))
-      (let ((port (subseq host (1+ pos))))
-        (declare (type simple-string port))
-        (if (every #'digit-char-p port)
+      (let ((port (loop with port = 0
+                        for i from (1+ pos) to (1- (length host))
+                        for char = (aref host i)
+                        do (if (digit-char-p char)
+                               (setq port (+ (* 10 port)
+                                             (- (char-code char) (char-code #\0))))
+                               (return nil))
+                        finally
+                           (return port))))
+        (if port
             (values (subseq host 0 pos)
-                    (read-from-string port))
+                    port)
             (values host nil))))))
 
 (defun handle-request (http socket)
