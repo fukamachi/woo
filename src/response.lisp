@@ -2,35 +2,22 @@
 (defpackage woo.response
   (:use :cl)
   (:import-from :cl-async
-                :delay
                 :socket-data
                 :write-socket-data
                 :async-io-stream
-                :close-socket
-                :socket-c
-                :*buffer-size*
-                :*socket-buffer-c*)
-  (:import-from :cl-async-util
-                :save-callbacks)
+                :close-socket)
   (:import-from :chunga
                 :make-chunked-stream
                 :chunked-stream-output-chunking-p )
-  (:import-from :libevent2
-                :bufferevent-get-output
-                :bufferevent-enable
-                :evbuffer-add
-                :+ev-read+
-                :+ev-write+)
+  (:import-from :fast-io
+                :with-fast-output
+                :fast-write-sequence
+                :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes)
-  (:import-from :alexandria
-                :with-gensyms)
   (:export :*empty-chunk*
            :*empty-bytes*
-           :with-evbuffer
-           :write-octets-to-evbuffer
-           :write-ascii-string-to-evbuffer
-           :write-crlf-to-evbuffer
+           :fast-write-crlf
            :response-headers-bytes
            :write-response-headers
            :start-chunked-response
@@ -116,70 +103,17 @@
 (defvar *empty-bytes*
   #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
-;;
-;; Utilities for writing to libevent2 buffer directly
+(declaim (inline fast-write-string fast-write-crlf))
 
-(declaim (type fixnum *buffer-index*))
-(defvar *buffer-index* 0)
+(defun fast-write-string (string buffer)
+  (declare (optimize (speed 3) (safety 0)))
+  (loop for char of-type character across string
+        do (fast-write-byte (char-code char) buffer)))
 
-(defmacro defun-evbuffer-writer (name data-type &optional key)
-  `(defun ,name (data evbuffer)
-     (declare (type ,data-type data)
-              (optimize (speed 3) (safety 2)))
-     (let ((data-length (length data))
-           (data-index 0))
-       (declare (type fixnum data-length data-index)
-                (dynamic-extent data-index))
-       (loop until (zerop data-length) do
-         (let* ((buffer-left (- (the fixnum as::*buffer-size*) (the fixnum *buffer-index*)))
-                (buffer-run-out-p (< buffer-left data-length))
-                (bufsize (if buffer-run-out-p buffer-left data-length)))
-           (declare (type boolean buffer-run-out-p)
-                    (type fixnum bufsize buffer-left))
-           (dotimes (i bufsize)
-             (declare (ignore i))
-             (setf (cffi:mem-aref as::*socket-buffer-c* :unsigned-char (the fixnum *buffer-index*))
-                   ,(if key
-                        `(,key (aref data data-index))
-                        `(aref data data-index)))
-             (incf data-index)
-             (incf *buffer-index*))
-           (if buffer-run-out-p
-               (progn
-                 (le:evbuffer-add evbuffer as::*socket-buffer-c* as::*buffer-size*)
-                 (setq *buffer-index* 0)
-                 (decf data-length bufsize))
-               (return)))))))
-
-(defun-evbuffer-writer write-octets-to-evbuffer (simple-array (unsigned-byte 8) (*)))
-(defun-evbuffer-writer write-ascii-string-to-evbuffer simple-string char-code)
-(defun write-crlf-to-evbuffer (evbuffer)
-  (write-octets-to-evbuffer #.(string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline)) evbuffer))
-
-(defmacro with-evbuffer ((evbuffer socket &key read-cb write-cb event-cb) &body body)
-  (with-gensyms (bev bev-data socket-data-pointer callbacks do-send)
-    `(let* ((,bev (as::socket-c ,socket))
-            (,evbuffer (le:bufferevent-get-output ,bev))
-            (*buffer-index* 0))
-       (flet ((,do-send ()
-                (le:bufferevent-enable ,bev (logior le:+ev-read+ le:+ev-write+))
-                ,@body
-                (locally (declare (optimize (speed 3) (safety 0)))
-                  (unless (= (the fixnum *buffer-index*) 0)
-                    (le:evbuffer-add ,evbuffer as::*socket-buffer-c* *buffer-index*)
-                    (setq *buffer-index* 0)))))
-         ,(if (or read-cb write-cb event-cb)
-              `(as:delay
-                (lambda ()
-                  (let* ((,bev-data (as::deref-data-from-pointer ,bev))
-                         (,socket-data-pointer (getf ,bev-data :data-pointer))
-                         (,callbacks (as::get-callbacks ,socket-data-pointer)))
-                    (save-callbacks ,socket-data-pointer
-                                    (list :read-cb ,(or read-cb `(getf ,callbacks :read-cb))
-                                          :write-cb ,(or write-cb `(getf ,callbacks :write-cb))
-                                          :event-cb ,(or event-cb `(getf ,callbacks :event-cb)))))
-                  (,do-send)))
-              `(,do-send))))))
+(defun fast-write-crlf (buffer)
+  (declare (optimize (speed 3) (safety 0)))
+  (fast-write-byte #.(char-code #\Return) buffer)
+  (fast-write-byte #.(char-code #\Newline) buffer))
 
 (declaim (type (simple-array character (31)) *date-header*))
 (defvar *date-header* (make-string 31))
@@ -280,28 +214,30 @@
           (write-int-to-date offset-min 29)))))
   *date-header*)
 
-(defun response-headers-bytes (evbuffer status headers &optional keep-alive-p)
-  (write-octets-to-evbuffer (gethash status *status-line*) evbuffer)
+(defun response-headers-bytes (buffer status headers &optional keep-alive-p)
+  (fast-write-sequence (gethash status *status-line*) buffer)
   ;; Send default headers
-  (write-octets-to-evbuffer #.(string-to-utf-8-bytes "Date: ") evbuffer)
-  (write-ascii-string-to-evbuffer (current-rfc-1123-timestamp) evbuffer)
-  (write-crlf-to-evbuffer evbuffer)
+  (fast-write-sequence #.(string-to-utf-8-bytes "Date: ") buffer)
+  (fast-write-string (current-rfc-1123-timestamp) buffer)
+  (fast-write-crlf buffer)
 
   (when keep-alive-p
-    (write-octets-to-evbuffer
+    (fast-write-sequence
      #.(string-to-utf-8-bytes
         (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
-     evbuffer))
+     buffer))
 
   (loop for (k v) on headers by #'cddr
         when v
-          do (write-ascii-string-to-evbuffer (format nil "~:(~A~): ~A" k v) evbuffer)
-             (write-crlf-to-evbuffer evbuffer)))
+          do (fast-write-string (format nil "~:(~A~): ~A" k v) buffer)
+             (fast-write-crlf buffer)))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (with-evbuffer (evbuffer socket)
-    (response-headers-bytes evbuffer status headers keep-alive-p)
-    (write-crlf-to-evbuffer evbuffer)))
+  (as:write-socket-data
+   socket
+   (with-fast-output (buffer :vector)
+     (response-headers-bytes buffer status headers keep-alive-p)
+     (fast-write-crlf buffer))))
 
 (defun start-chunked-response (socket status headers)
   (write-response-headers socket status (append headers
