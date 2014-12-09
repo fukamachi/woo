@@ -60,7 +60,7 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (worker-num nil) fd)
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") fd)
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
@@ -69,50 +69,8 @@
                               #'read-cb
                               #'event-cb
                               :connect-cb #'connect-cb
-                              :fd fd)))
-           #-windows
-           (start-server-multi ()
-             (let (socket)
-               (as:with-event-loop (:catch-app-errors t)
-                 (setq socket
-                       (as:tcp-server address port
-                                      #'read-cb
-                                      #'event-cb
-                                      :connect-cb #'connect-cb))
-                 (as:signal-handler 2
-                                    (lambda (sig)
-                                      (declare (ignore sig))
-                                      (format *error-output* "SIGINT~%")
-                                      (as:close-tcp-server socket)
-                                      #+sbcl
-                                      (sb-ext:exit)
-                                      #-sbcl
-                                      (cl-user:quit)))
-                 (let ((times worker-num))
-                   (tagbody forking
-                      (let ((pid #+sbcl (sb-posix:fork)
-                                 #-sbcl (osicat-posix:fork)))
-                        (if (zerop pid)
-                            (progn
-                              (le:event-reinit (as::event-base-c as::*event-base*))
-                              (unless (zerop (decf times))
-                                (go forking)))
-                            (progn
-                              (le:event-reinit (as::event-base-c as::*event-base*))
-                              (as:signal-handler 2
-                                                 (lambda (sig)
-                                                   (declare (ignore sig))
-                                                   #+sbcl
-                                                   (sb-ext:exit)
-                                                   #-sbcl
-                                                   (cl-user:quit)))
-                              (format t "Worker started: ~A~%" pid))))))))))
-      (let ((start-fn #-windows
-                      (if worker-num
-                          #'start-server-multi
-                          #'start-server)
-                      #+windows #'start-server))
-        (funcall start-fn)))))
+                              :fd fd))))
+      (funcall #'start-server))))
 
 (defun connect-cb (socket)
   (setup-parser socket))
