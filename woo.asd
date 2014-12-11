@@ -16,21 +16,32 @@
   :version "0.0.1"
   :author "Eitaro Fukamachi"
   :license "MIT"
-  :depends-on (:cl-async
+  :depends-on (:ev
+               :iolib
+               :cffi
+               :static-vectors
                :fast-http
                :quri
                :fast-io
-               :chunga
                :trivial-utf-8
                :flexi-streams
-               :log4cl
+               :vom
                :local-time
-               #-(or sbcl windows) osicat
-               :alexandria)
+               :alexandria
+               :split-sequence)
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("response"))
-                 (:file "response"))))
+                ((:file "woo" :depends-on ("ev" "response"))
+                 (:file "response" :depends-on ("ev"))
+                 (:file "ev" :depends-on ("ev-packages"))
+                 (:module "ev-packages"
+                  :pathname "ev"
+                  :components
+                  ((:file "event-loop")
+                   (:file "socket" :depends-on ("event-loop" "util"))
+                   (:file "tcp" :depends-on ("event-loop" "socket" "util"))
+                   (:file "condition")
+                   (:file "util"))))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
   #.(with-open-file (stream (merge-pathnames

@@ -1,14 +1,6 @@
 (in-package :cl-user)
 (defpackage woo.response
   (:use :cl)
-  (:import-from :cl-async
-                :socket-data
-                :write-socket-data
-                :async-io-stream
-                :close-socket)
-  (:import-from :chunga
-                :make-chunked-stream
-                :chunked-stream-output-chunking-p )
   (:import-from :fast-io
                 :with-fast-output
                 :fast-write-sequence
@@ -20,6 +12,7 @@
            :fast-write-crlf
            :response-headers-bytes
            :write-response-headers
+           :write-body-chunk
            :start-chunked-response
            :finish-response))
 (in-package :woo.response)
@@ -233,23 +226,21 @@
              (fast-write-crlf buffer)))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (as:write-socket-data
+  (wev:write-socket-data
    socket
    (with-fast-output (buffer :vector)
      (response-headers-bytes buffer status headers keep-alive-p)
      (fast-write-crlf buffer))))
 
-(defun start-chunked-response (socket status headers)
-  (write-response-headers socket status (append headers
-                                                (list :transfer-encoding "chunked")))
-
-  (let* ((async-stream (make-instance 'as:async-io-stream :socket socket))
-         (chunked-stream (chunga:make-chunked-stream async-stream)))
-    (setf (chunga:chunked-stream-output-chunking-p chunked-stream) t)
-    chunked-stream))
+(defun write-body-chunk (socket chunk &key (start 0) (end (length chunk)))
+  (check-type chunk (simple-array (unsigned-byte 8) (*)))
+  (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
+                                     #'char-code
+                                     (format nil "~X~C~C" (- end start) #\Return #\Newline)))
+  (wev:write-socket-data socket chunk :start start :end end)
+  (wev:write-socket-data socket #.(string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline))))
 
 (defun finish-response (socket &optional (body *empty-bytes*))
-  (as:write-socket-data socket body
-                        :write-cb (lambda (socket)
-                                    (setf (as:socket-data socket) nil)
-                                    (as:close-socket socket))))
+  (wev:write-socket-data socket body
+                         :write-cb (lambda (socket)
+                                     (wev:close-socket socket))))

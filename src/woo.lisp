@@ -8,7 +8,7 @@
                 :fast-write-string
                 :response-headers-bytes
                 :write-response-headers
-                :start-chunked-response
+                :write-body-chunk
                 :finish-response)
   (:import-from :quri
                 :uri
@@ -24,19 +24,6 @@
                 :http-minor-version
                 :parsing-error
                 :fast-http-error)
-  (:import-from :cl-async
-                :socket-closed
-                :write-socket-data
-                :socket-data
-                :close-socket
-                :with-event-loop
-                :tcp-server
-                :close-tcp-server
-                :signal-handler
-                :tcp-info
-                :tcp-error
-                :tcp-eof
-                :tcp-socket)
   (:import-from :fast-io
                 :make-output-buffer
                 :finish-output-buffer
@@ -60,45 +47,33 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") fd)
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0"))
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
-             (as:with-event-loop (:catch-app-errors t)
-               (as:tcp-server address port
-                              #'read-cb
-                              #'event-cb
-                              :connect-cb #'connect-cb
-                              :fd fd))))
+             (let (listener)
+               (unwind-protect (wev:with-event-loop
+                                 (setq listener
+                                       (wev:tcp-server address port
+                                                       #'read-cb
+                                                       :connect-cb #'connect-cb)))
+                 (wev:close-tcp-server listener)))))
       (funcall #'start-server))))
 
 (defun connect-cb (socket)
   (setup-parser socket))
 
-(defun read-cb (socket data)
-  (let ((parser (as:socket-data socket)))
-    (handler-case (funcall parser data)
+(defun read-cb (socket data &key (start 0) (end (length data)))
+  (let ((parser (wev:socket-data socket)))
+    (handler-case (funcall parser data :start start :end end)
       (fast-http:parsing-error (e)
-        (log:error "fast-http parsing error: ~A" e)
+        (vom:error "fast-http parsing error: ~A" e)
         (write-response-headers socket 400 ())
         (finish-response socket (princ-to-string e)))
       (fast-http:fast-http-error (e)
-        (log:error "fast-http error: ~A" e)
+        (vom:error "fast-http error: ~A" e)
         (write-response-headers socket 500 ())
         (finish-response socket #.(trivial-utf-8:string-to-utf-8-bytes "Internal Server Error"))))))
-
-(defun event-cb (event)
-  (typecase event
-    (as:tcp-eof ())
-    (as:tcp-error ()
-     (log:error (princ-to-string event)))
-    (as:tcp-info
-     (log:info (princ-to-string event))
-     (let ((socket (as:tcp-socket event)))
-       (write-response-headers socket 500 ())
-       (finish-response socket "Internal Server Error")))
-    (T
-     (log:info event))))
 
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
@@ -115,7 +90,7 @@
 (defun setup-parser (socket)
   (let ((http (make-http-request))
         (body-buffer (fast-io::make-output-buffer)))
-    (setf (as:socket-data socket)
+    (setf (wev:socket-data socket)
           (make-parser http
                        :body-callback
                        (lambda (data start end)
@@ -135,13 +110,13 @@
                                                 (funcall *app* env)
                                                 (if-let (res (handler-case (funcall *app* env)
                                                                (error (error)
-                                                                 (log:error error)
+                                                                 (vom:error error)
                                                                  nil)))
                                                   res
                                                   '(500 nil nil))))))))))
 
 (defun stop (server)
-  (as:close-tcp-server server))
+  (wev:close-tcp-server server))
 
 
 ;;
@@ -210,11 +185,11 @@
         (function (funcall clack-res (lambda (clack-res)
                                        (handler-case
                                            (handle-normal-response http socket clack-res)
-                                         (as:socket-closed ()))))))
-    (as:tcp-error (e)
-      (log:error e))
+                                         (wev:socket-closed ()))))))
+    (wev:tcp-error (e)
+      (vom:error e))
     (t (e)
-      (log:error e))))
+      (vom:error e))))
 
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
@@ -223,14 +198,14 @@
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
       (when (eq body no-body)
-        (let* ((stream (start-chunked-response socket status headers))
-               (default-close close))
+        (let ((default-close close))
+          (setf (getf headers :transfer-encoding) "chunked")
+          (write-response-headers socket status headers)
           (return-from handle-normal-response
             (lambda (body &key (close nil close-specified-p))
               (etypecase body
-                (string (write-sequence (trivial-utf-8:string-to-utf-8-bytes body) stream))
-                (vector (write-sequence body stream)))
-              (force-output stream)
+                (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
+                (vector (write-body-chunk socket body)))
               (setq close (if close-specified-p
                               close
                               default-close))
@@ -241,13 +216,18 @@
         (null
          (write-response-headers socket status headers)
          (finish-response socket))
-        (pathname (let ((stream (start-chunked-response socket status headers)))
-                    (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
-                      (copy-stream in stream))
-                    (force-output stream)
-                    (finish-response socket *empty-chunk*)))
+        (pathname
+         (setf (getf headers :transfer-encoding) "chunked")
+         (write-response-headers socket status headers)
+         (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8))))
+           (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
+             (loop
+               for n = (read-sequence buffer in)
+               until (zerop n)
+               do (write-body-chunk socket buffer :end n)))
+           (finish-response socket *empty-chunk*)))
         (list
-         (as:write-socket-data
+         (wev:write-socket-data
           socket
           (with-fast-output (buffer :vector)
             (cond
@@ -266,7 +246,7 @@
                   (fast-write-crlf buffer)
                   (loop for str in body
                         for data = (string-to-utf-8-bytes str)
-                        do (fast-write-string (format nil "~X" (length data)) buffer)
+                        do (fast-write-string (the simple-string (format nil "~X" (length data))) buffer)
                            (fast-write-crlf buffer)
                            (fast-write-sequence data buffer)
                            (fast-write-crlf buffer))
@@ -287,10 +267,9 @@
                         do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))))))
           :write-cb (and close
                          (lambda (socket)
-                           (setf (as:socket-data socket) nil)
-                           (as:close-socket socket)))))
+                           (wev:close-socket socket)))))
         ((vector (unsigned-byte 8))
-         (as:write-socket-data
+         (wev:write-socket-data
           socket
           (with-fast-output (buffer :vector)
             (response-headers-bytes buffer status headers (not close))
@@ -302,5 +281,4 @@
             (fast-write-sequence body buffer))
           :write-cb (and close
                          (lambda (socket)
-                           (setf (as:socket-data socket) nil)
-                           (as:close-socket socket)))))))))
+                           (wev:close-socket socket)))))))))
