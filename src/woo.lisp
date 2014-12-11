@@ -228,7 +228,7 @@
                do (write-body-chunk socket buffer :end n)))
            (finish-response socket *empty-chunk*)))
         (list
-         (wev:write-socket-data
+         (wev:write-socket-data-async
           socket
           (with-fast-output (buffer :vector)
             (cond

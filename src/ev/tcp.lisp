@@ -53,34 +53,30 @@
 
 (define-c-callback tcp-read-cb :void ((evloop :pointer) (watcher :pointer) (events :int))
   (declare (ignore events))
-  (flet ((stop (socket)
-           (ev::ev_io_stop evloop watcher)
-           (close-socket socket)
-           (values)))
-    (let* ((fd (io-fd watcher))
-           (buffer-len (length *input-buffer*))
-           (socket (deref-data-from-pointer fd))
-           (read-cb (socket-read-cb socket)))
-      (when (socket-closed-p socket)
-        (return-from tcp-read-cb))
+  (let* ((fd (io-fd watcher))
+         (buffer-len (length *input-buffer*))
+         (socket (deref-data-from-pointer fd))
+         (read-cb (socket-read-cb socket)))
+    (when (socket-closed-p socket)
+      (return-from tcp-read-cb))
 
-      (handler-case
-          (loop
-            (let ((nread (isys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
-              (when (zerop nread)
-                ;; EOF: drain remaining writes or close connection
-                (stop socket)
-                (return))
+    (handler-case
+        (loop
+          (let ((nread (isys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
+            (when (zerop nread)
+              ;; EOF: drain remaining writes or close connection
+              (close-socket socket)
+              (return))
 
-              (when read-cb
-                (funcall (the function read-cb) socket *input-buffer* :start 0 :end nread))
+            (when read-cb
+              (funcall (the function read-cb) socket *input-buffer* :start 0 :end nread))
 
-              (unless (= nread buffer-len)
-                (return))))
-        ((or isys:EWOULDBLOCK isys:EINTR) ())
-        ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
-          (vom:error e)
-          (stop socket))))))
+            (unless (= nread buffer-len)
+              (return))))
+      ((or isys:EWOULDBLOCK isys:EINTR) ())
+      ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
+        (vom:error e)
+        (close-socket socket)))))
 
 (defun make-client-watcher (client-fd)
   (%set-fd-nonblock client-fd t)
