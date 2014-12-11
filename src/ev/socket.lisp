@@ -9,10 +9,8 @@
                 :io-fd
                 :define-c-callback)
   (:import-from :iolib.syscalls
-                #+nil :close)
-  (:import-from :iolib.sockets
-                :%sendto
-                :msg-dontwait)
+                #+nil :close
+                #+nil write)
   (:import-from :ev
                 :ev_io_init
                 :ev_io_start
@@ -76,22 +74,17 @@
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         write-cb)
   (check-socket-open socket)
-  (let* ((watcher (socket-watcher socket))
-         (fd (io-fd watcher)))
+  (let ((fd (io-fd (socket-watcher socket))))
     (cffi:with-pointer-to-vector-data (data-sap data)
       (cffi:incf-pointer data-sap start)
       (let* ((nwrote 0)
-             (len (- end start))
-             (n (%sendto fd data-sap len sockets::msg-dontwait
-                         (cffi:null-pointer) 0)))
+             (len (- end start)))
         (loop
-          (cond
-            ((= n -1)
-             (vom:error "Error while writing data: ~D" (isys:errno)))
-            ((/= (+ nwrote n) len)
-             (incf nwrote n)
-             (cffi:incf-pointer data-sap n))
-            (T (return))))
+          (let ((n (isys:write fd data-sap len)))
+            (incf nwrote n)
+            (if (= nwrote len)
+                (return)
+                (cffi:incf-pointer data-sap n))))
         (when write-cb
           (funcall (the function write-cb) socket))))))
 
