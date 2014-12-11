@@ -2,7 +2,7 @@
 (defpackage woo.ev.socket
   (:use :cl)
   (:import-from :woo.ev.event-loop
-                :remove-callbacks)
+                :remove-pointer-from-registry)
   (:import-from :woo.ev.util
                 :io-fd)
   (:import-from :iolib.syscalls
@@ -19,6 +19,7 @@
            :make-socket
            :socket-watcher
            :socket-data
+           :socket-read-cb
            :socket-closed-p
 
            :write-socket-data
@@ -28,17 +29,23 @@
 (defstruct socket
   watcher
   data
+  read-cb
   closed-p)
 
+(declaim (inline close-watcher))
+
 (defun close-watcher (watcher)
-  (isys:close (io-fd watcher))
-  (cffi:foreign-free watcher)
-  (remove-callbacks watcher))
+  (let ((fd (io-fd watcher)))
+    (isys:close fd)
+    (remove-pointer-from-registry fd))
+  (cffi:foreign-free watcher))
 
 (defun close-socket (socket)
   (let ((watcher (socket-watcher socket)))
     (close-watcher watcher))
   (setf (socket-closed-p socket) t))
+
+(declaim (notinline close-watcher))
 
 ;; TODO: buffering when writing failed.
 (defun write-socket-data (socket data &key (start 0) (end (length data))

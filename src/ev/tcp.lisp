@@ -10,6 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
+                :socket-read-cb
                 :socket-closed-p)
   (:import-from :woo.ev.util
                 :define-c-callback
@@ -54,10 +55,12 @@
   (declare (ignore events))
   (flet ((stop (socket)
            (ev::ev_io_stop evloop watcher)
-           (close-socket socket)))
+           (close-socket socket)
+           (values)))
     (let* ((fd (io-fd watcher))
            (buffer-len (length *input-buffer*))
-           (socket (deref-data-from-pointer fd)))
+           (socket (deref-data-from-pointer fd))
+           (read-cb (socket-read-cb socket)))
       (when (socket-closed-p socket)
         (return-from tcp-read-cb))
 
@@ -69,10 +72,8 @@
                 (stop socket)
                 (return))
 
-              (let* ((callbacks (callbacks fd))
-                     (read-cb (getf callbacks :read-cb)))
-                (when read-cb
-                  (funcall read-cb socket *input-buffer* :start 0 :end nread)))
+              (when read-cb
+                (funcall (the function read-cb) socket *input-buffer* :start 0 :end nread))
 
               (unless (= nread buffer-len)
                 (return))))
@@ -104,7 +105,7 @@
             (when connect-cb
               (funcall connect-cb socket))
             (when read-cb
-              (setf (callbacks client-fd) (list :read-cb read-cb)))))))))
+              (setf (socket-read-cb socket) read-cb))))))))
 
 (defun listen-on (address port &key (backlog *default-backlog-size*))
   (let ((address (sockets:make-address

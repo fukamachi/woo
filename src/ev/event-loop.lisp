@@ -18,7 +18,8 @@
 
            :callbacks
            :remove-callbacks
-           :deref-data-from-pointer))
+           :deref-data-from-pointer
+           :remove-pointer-from-registry))
 (in-package :woo.ev.event-loop)
 
 (defparameter *evloop* nil)
@@ -40,11 +41,15 @@
     (remhash pointer *callbacks*)))
 
 (defun deref-data-from-pointer (pointer)
-  (when (and pointer *data-registry*)
+  (when *data-registry*
     (gethash pointer *data-registry*)))
 
 (defun (setf deref-data-from-pointer) (data pointer)
   (setf (gethash pointer *data-registry*) data))
+
+(defun remove-pointer-from-registry (pointer)
+  (when *data-registry*
+    (remhash pointer *data-registry*)))
 
 (defmacro with-event-loop (&body body)
   `(let ((*evloop* (ev::ev_loop_new 0))
