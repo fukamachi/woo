@@ -47,7 +47,7 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0"))
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog 4))
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
@@ -56,7 +56,8 @@
                                  (setq listener
                                        (wev:tcp-server address port
                                                        #'read-cb
-                                                       :connect-cb #'connect-cb)))
+                                                       :connect-cb #'connect-cb
+                                                       :backlog backlog)))
                  (wev:close-tcp-server listener)))))
       (funcall #'start-server))))
 
