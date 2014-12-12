@@ -99,9 +99,9 @@
                          :write-cb (socket-write-cb socket))
 
       (setf (socket-write-cb socket) nil
-            (socket-buffer socket) nil)
-      (ev::ev_io_stop evloop io)
-      (cffi:foreign-free io))))
+            (socket-buffer socket) nil))
+    (ev::ev_io_stop evloop io)
+    (cffi:foreign-free io)))
 
 (defun write-socket-data-async (socket data &key (start 0) (end (length data))
                                               write-cb)
