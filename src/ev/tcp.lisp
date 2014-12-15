@@ -63,8 +63,9 @@
         (loop
           (let ((nread (isys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
             (when (zerop nread)
-              ;; EOF: drain remaining writes or close connection
-              (close-socket socket)
+              ;; EOF
+              (ev::ev_io_stop evloop watcher)
+              (cffi:foreign-free watcher)
               (return))
 
             (when read-cb
