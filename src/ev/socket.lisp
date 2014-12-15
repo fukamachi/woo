@@ -23,7 +23,8 @@
                 :null-pointer)
   (:export :socket
            :make-socket
-           :socket-watcher
+           :socket-read-watcher
+           :socket-write-watcher
            :socket-data
            :socket-read-cb
            :socket-closed-p
@@ -34,9 +35,14 @@
            :close-socket))
 (in-package :woo.ev.socket)
 
-(defstruct socket
-  watcher
+(defstruct (socket (:constructor %make-socket))
+  (watchers (make-array 2
+                        :element-type 'cffi:foreign-pointer
+                        :initial-contents (list (cffi:foreign-alloc 'ev::ev_io)
+                                                (cffi:foreign-alloc 'ev::ev_io))))
+  fd
   data
+  tcp-read-cb
   read-cb
   write-cb
   closed-p
@@ -45,26 +51,36 @@
   buffer-start
   buffer-end)
 
-(declaim (inline close-watcher))
+(defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
+  (let ((socket (apply #'%make-socket initargs)))
+    (ev::ev_io_init (socket-read-watcher socket)
+                    tcp-read-cb
+                    fd
+                    ev:EV_READ)
+    socket))
 
-(defun close-watcher (watcher)
-  (when *evloop*
-    (ev::ev_io_stop *evloop* watcher))
-  (let ((fd (io-fd watcher)))
-    (isys:close fd)
-    (remove-pointer-from-registry fd))
-  (cffi:foreign-free watcher)
-  t)
+(defun socket-read-watcher (socket)
+  (svref (socket-watchers socket) 0))
+
+(defun socket-write-watcher (socket)
+  (svref (socket-watchers socket) 1))
 
 (defun close-socket (socket)
-  (let ((watcher (socket-watcher socket)))
-    (close-watcher watcher))
+  (let ((read-watcher (socket-read-watcher socket))
+        (write-watcher (socket-write-watcher socket)))
+    (ev::ev_io_stop *evloop* read-watcher)
+    (ev::ev_io_stop *evloop* write-watcher)
+    (cffi:foreign-free read-watcher)
+    (cffi:foreign-free write-watcher))
+  (let ((fd (socket-fd socket)))
+    (isys:close fd)
+    (remove-pointer-from-registry fd))
   (setf (socket-closed-p socket) t
         (socket-read-cb socket) nil
         (socket-write-cb socket) nil
-        (socket-buffer socket) nil))
-
-(declaim (notinline close-watcher))
+        (socket-buffer socket) nil
+        (socket-data socket) nil)
+  t)
 
 (defun check-socket-open (socket)
   (when (socket-closed-p socket)
@@ -74,7 +90,7 @@
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         write-cb)
   (check-socket-open socket)
-  (let ((fd (io-fd (socket-watcher socket))))
+  (let ((fd (socket-fd socket)))
     (cffi:with-pointer-to-vector-data (data-sap data)
       (cffi:incf-pointer data-sap start)
       (let* ((nwrote 0)
@@ -113,8 +129,7 @@
       (when completedp
         (setf (socket-write-cb socket) nil
               (socket-buffer socket) nil)
-        (ev::ev_io_stop evloop io)
-        (cffi:foreign-free io)))))
+        (ev::ev_io_stop evloop io)))))
 
 (defun write-socket-data-async (socket data &key (start 0) (end (length data))
                                               write-cb)
@@ -124,8 +139,8 @@
         (socket-buffer-start socket) start
         (socket-buffer-end socket) end
         (socket-write-cb socket) write-cb)
-  (let ((io (cffi:foreign-alloc 'ev::ev_io))
-        (fd (io-fd (socket-watcher socket))))
+  (let ((io (socket-write-watcher socket))
+        (fd (socket-fd socket)))
     (ev::ev_io_init io 'async-write-cb fd ev:EV_WRITE)
     (ev::ev_io_start *evloop* io)
     t))

@@ -10,7 +10,8 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
-                :socket-read-cb)
+                :socket-read-cb
+                :socket-read-watcher)
   (:import-from :woo.ev.util
                 :define-c-callback
                 :io-fd)
@@ -62,7 +63,6 @@
             (when (zerop nread)
               ;; EOF
               (ev::ev_io_stop evloop watcher)
-              (cffi:foreign-free watcher)
               (return))
 
             (when read-cb
@@ -75,20 +75,13 @@
         (vom:error e)
         (close-socket socket)))))
 
-(defun make-client-watcher (client-fd)
-  (%set-fd-nonblock client-fd t)
-  (let ((io (cffi:foreign-alloc 'ev::ev_io)))
-    (ev::ev_io_init io 'tcp-read-cb client-fd ev:EV_READ)
-    io))
-
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
   (ignore-some-conditions (isys:EWOULDBLOCK isys:ECONNABORTED isys:EPROTO isys:EINTR)
     (with-sockaddr-storage-and-socklen (sockaddr size)
       (let* ((fd (io-fd listener))
              (client-fd (%accept fd sockaddr size))
-             (client-watcher (make-client-watcher client-fd))
-             (socket (make-socket :watcher client-watcher)))
+             (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))
         (setf (deref-data-from-pointer client-fd) socket)
         (let* ((callbacks (callbacks fd))
                (read-cb (getf callbacks :read-cb))
@@ -97,7 +90,7 @@
             (funcall (the function connect-cb) socket))
           (when read-cb
             (setf (socket-read-cb socket) read-cb)))
-        (ev::ev_io_start evloop client-watcher)))))
+        (ev::ev_io_start evloop (socket-read-watcher socket))))))
 
 (defun listen-on (address port &key (backlog *default-backlog-size*))
   (let ((address (sockets:make-address
