@@ -79,14 +79,20 @@
       (cffi:incf-pointer data-sap start)
       (let* ((nwrote 0)
              (len (- end start)))
-        (loop
-          (let ((n (isys:write fd data-sap len)))
-            (incf nwrote n)
-            (if (= nwrote len)
-                (return)
-                (cffi:incf-pointer data-sap n))))
-        (when write-cb
-          (funcall (the function write-cb) socket))))))
+        (handler-case
+            (progn
+              (loop
+                (let ((n (isys:write fd data-sap len)))
+                  (incf nwrote n)
+                  (if (= nwrote len)
+                      (return)
+                      (cffi:incf-pointer data-sap n))))
+              (when write-cb
+                (funcall (the function write-cb) socket)))
+          ((or isys:EWOULDBLOCK isys:EINTR) ())
+          ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
+            (vom:error e)
+            (close-socket socket)))))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
   (declare (ignore events))
