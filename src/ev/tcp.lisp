@@ -10,8 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
-                :socket-read-cb
-                :socket-closed-p)
+                :socket-read-cb)
   (:import-from :woo.ev.util
                 :define-c-callback
                 :io-fd)
@@ -32,7 +31,7 @@
   (:import-from :iolib.syscalls
                 :%set-fd-nonblock
                 #+nil :close
-                #+nil read
+                #+nil :read
                 :EWOULDBLOCK
                 :ECONNABORTED
                 :ECONNREFUSED
@@ -56,8 +55,6 @@
          (buffer-len (length *input-buffer*))
          (socket (deref-data-from-pointer fd))
          (read-cb (socket-read-cb socket)))
-    (when (socket-closed-p socket)
-      (return-from tcp-read-cb))
 
     (handler-case
         (loop
