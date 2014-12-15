@@ -88,7 +88,8 @@
                       (return)
                       (cffi:incf-pointer data-sap n))))
               (when write-cb
-                (funcall (the function write-cb) socket)))
+                (funcall (the function write-cb) socket))
+              (return-from write-socket-data t))
           ((or isys:EWOULDBLOCK isys:EINTR) ())
           ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
             (vom:error e)
@@ -98,16 +99,22 @@
   (declare (ignore events))
   (let* ((fd (io-fd io))
          (socket (deref-data-from-pointer fd)))
-    (when socket
-      (write-socket-data socket (socket-buffer socket)
-                         :start (socket-buffer-start socket)
-                         :end (socket-buffer-end socket)
-                         :write-cb (socket-write-cb socket))
+    (unless socket
+      (ev::ev_io_stop evloop io)
+      (cffi:foreign-free io)
+      (return-from async-write-cb))
 
-      (setf (socket-write-cb socket) nil
-            (socket-buffer socket) nil))
-    (ev::ev_io_stop evloop io)
-    (cffi:foreign-free io)))
+    (let ((completedp
+            (write-socket-data socket (socket-buffer socket)
+                               :start (socket-buffer-start socket)
+                               :end (socket-buffer-end socket)
+                               :write-cb (socket-write-cb socket))))
+
+      (when completedp
+        (setf (socket-write-cb socket) nil
+              (socket-buffer socket) nil)
+        (ev::ev_io_stop evloop io)
+        (cffi:foreign-free io)))))
 
 (defun write-socket-data-async (socket data &key (start 0) (end (length data))
                                               write-cb)
