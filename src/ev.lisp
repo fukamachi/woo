@@ -7,7 +7,7 @@
                 :close-tcp-server)
   (:import-from :woo.ev.socket
                 :socket
-                :socket-closed-p
+                :socket-open-p
                 :socket-data
                 :close-socket
                 :write-socket-data
@@ -19,7 +19,7 @@
                 :tcp-error
                 :socket-closed)
   (:export :socket
-           :socket-closed-p
+           :socket-open-p
            :with-event-loop
            :tcp-server
            :close-tcp-server

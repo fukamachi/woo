@@ -27,7 +27,7 @@
            :socket-write-watcher
            :socket-data
            :socket-read-cb
-           :socket-closed-p
+           :socket-open-p
            :check-socket-open
 
            :write-socket-data
@@ -45,7 +45,7 @@
   tcp-read-cb
   read-cb
   write-cb
-  closed-p
+  (open-p t)
 
   buffer
   buffer-start
@@ -75,7 +75,7 @@
   (let ((fd (socket-fd socket)))
     (isys:close fd)
     (remove-pointer-from-registry fd))
-  (setf (socket-closed-p socket) t
+  (setf (socket-open-p socket) nil
         (socket-read-cb socket) nil
         (socket-write-cb socket) nil
         (socket-buffer socket) nil
@@ -83,7 +83,7 @@
   t)
 
 (defun check-socket-open (socket)
-  (when (socket-closed-p socket)
+  (unless (socket-open-p socket)
     (error 'socket-closed)))
 
 ;; TODO: buffering when writing failed.
