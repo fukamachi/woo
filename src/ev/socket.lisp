@@ -10,7 +10,11 @@
                 :define-c-callback)
   (:import-from :iolib.syscalls
                 #+nil :close
-                #+nil write)
+                #+nil :write)
+  (:import-from :iolib.sockets
+                :%shutdown
+                :shut-rdwr
+                :socket-not-connected-error)
   (:import-from :ev
                 :ev_io_init
                 :ev_io_start
@@ -21,6 +25,8 @@
                 :incf-pointer
                 :foreign-free
                 :null-pointer)
+  (:import-from :alexandria
+                :ignore-some-conditions)
   (:export :socket
            :make-socket
            :socket-read-watcher
@@ -73,7 +79,8 @@
     (cffi:foreign-free read-watcher)
     (cffi:foreign-free write-watcher))
   (let ((fd (socket-fd socket)))
-    (isys:close fd)
+    (ignore-some-conditions (socket-not-connected-error)
+      (sockets::%shutdown fd sockets::shut-rdwr))
     (remove-pointer-from-registry fd))
   (setf (socket-open-p socket) nil
         (socket-read-cb socket) nil
