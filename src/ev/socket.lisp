@@ -93,30 +93,31 @@
   (unless (socket-open-p socket)
     (error 'socket-closed)))
 
-;; TODO: buffering when writing failed.
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         write-cb)
   (check-socket-open socket)
   (let ((fd (socket-fd socket)))
     (cffi:with-pointer-to-vector-data (data-sap data)
       (cffi:incf-pointer data-sap start)
-      (let* ((nwrote 0)
-             (len (- end start)))
+      (let ((nwrote 0)
+            (len (- end start)))
+        (declare (dynamic-extent nwrote))
         (handler-case
             (progn
               (loop
-                (let ((n (isys:write fd data-sap len)))
-                  (incf nwrote n)
-                  (if (= nwrote len)
-                      (return)
-                      (cffi:incf-pointer data-sap n))))
+                for n = (isys:write fd data-sap len)
+                do (incf nwrote n)
+                until (= nwrote len)
+                do (cffi:incf-pointer data-sap n))
               (when write-cb
                 (funcall (the function write-cb) socket))
-              (return-from write-socket-data t))
-          ((or isys:EWOULDBLOCK isys:EINTR) ())
+              T)
+          ((or isys:EWOULDBLOCK isys:EINTR) ()
+            nil)
           ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
             (vom:error e)
-            (close-socket socket)))))))
+            (close-socket socket)
+            T))))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
   (declare (ignore events))
