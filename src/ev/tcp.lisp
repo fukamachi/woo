@@ -62,7 +62,7 @@
           (let ((nread (isys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
             (when (zerop nread)
               ;; EOF
-              (ev::ev_io_stop evloop watcher)
+              (close-socket socket)
               (return))
 
             (when read-cb
