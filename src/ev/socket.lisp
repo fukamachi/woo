@@ -45,17 +45,18 @@
   (watchers (make-array 2
                         :element-type 'cffi:foreign-pointer
                         :initial-contents (list (cffi:foreign-alloc 'ev::ev_io)
-                                                (cffi:foreign-alloc 'ev::ev_io))))
-  fd
+                                                (cffi:foreign-alloc 'ev::ev_io)))
+   :type (simple-array cffi:foreign-pointer (2)))
+  (fd nil :type fixnum)
   data
-  tcp-read-cb
-  read-cb
-  write-cb
-  (open-p t)
+  (tcp-read-cb nil :type symbol)
+  (read-cb nil :type (or null function))
+  (write-cb nil :type (or null function))
+  (open-p t :type boolean)
 
-  buffer
-  buffer-start
-  buffer-end)
+  (buffer nil :type (or null (simple-array (unsigned-byte 8) (*))))
+  (buffer-start nil :type (or null integer))
+  (buffer-end nil :type (or null integer)))
 
 (defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
   (let ((socket (apply #'%make-socket initargs)))
