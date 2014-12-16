@@ -30,6 +30,8 @@
                 :with-fast-output
                 :fast-write-sequence
                 :fast-write-byte)
+  (:import-from :iolib.sockets
+                :+max-backlog-size+)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes
                 :utf-8-bytes-to-string
@@ -47,7 +49,10 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog 4))
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog +max-backlog-size+))
+  (assert (and (integerp backlog)
+               (plusp backlog)
+               (<= backlog +max-backlog-size+)))
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server ()
