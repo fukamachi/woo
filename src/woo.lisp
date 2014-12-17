@@ -115,7 +115,7 @@
                                                 (funcall *app* env)
                                                 (if-let (res (handler-case (funcall *app* env)
                                                                (error (error)
-                                                                 (vom:error error)
+                                                                 (vom:error (princ-to-string error))
                                                                  nil)))
                                                   res
                                                   '(500 nil nil))))))))))
@@ -192,9 +192,9 @@
                                            (handle-normal-response http socket clack-res)
                                          (wev:socket-closed ()))))))
     (wev:tcp-error (e)
-      (vom:error e))
+      (vom:error (princ-to-string e)))
     (t (e)
-      (vom:error e))))
+      (vom:error (princ-to-string e)))))
 
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
