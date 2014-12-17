@@ -180,9 +180,11 @@
                    (return)
                    (cffi:incf-pointer data-sap n))))))
         (when write-cb
-          (funcall (the function write-cb) socket)
-          (setf (socket-write-cb socket) nil))
-        (reset-buffer socket)
+          (funcall (the function write-cb) socket))
+        ;; Need to check if 'socket' is still open because it may be closed in write-cb.
+        (when (socket-open-p socket)
+          (setf (socket-write-cb socket) nil)
+          (reset-buffer socket))
         T))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
