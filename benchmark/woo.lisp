@@ -11,5 +11,4 @@
            (declare (ignore env))
            '(200 () ("Hello, World")))
          :debug nil
-         :use-thread nil
          :port 5000)
