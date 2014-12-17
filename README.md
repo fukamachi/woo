@@ -1,8 +1,6 @@
 # Woo
 
-Woo is a non-blocking HTTP server written in Common Lisp built on top of [cl-async](http://orthecreedence.github.com/cl-async) and [fast-http](https://github.com/fukamachi/fast-http).
-
-The architecture is pretty similar to Wookie, except Woo adopts Clack-compatible APIs and delegates all "web-application-framework-like" parts to the Clack ecosystem.
+Woo is a non-blocking HTTP server written in Common Lisp built on top of [libev](http://software.schmorp.de/pkg/libev.html) and [fast-http](https://github.com/fukamachi/fast-http).
 
 ## Warning
 
