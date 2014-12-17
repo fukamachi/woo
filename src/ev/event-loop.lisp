@@ -33,23 +33,27 @@
   (setf (gethash pointer *callbacks*) callbacks))
 
 (defun callbacks (pointer)
+  (declare (optimize (speed 3) (safety 0)))
   (when *callbacks*
-    (gethash pointer *callbacks*)))
+    (gethash pointer (the hash-table *callbacks*))))
 
 (defun remove-callbacks (pointer)
+  (declare (optimize (speed 3) (safety 0)))
   (when *callbacks*
-    (remhash pointer *callbacks*)))
+    (remhash pointer (the hash-table *callbacks*))))
 
 (defun deref-data-from-pointer (pointer)
+  (declare (optimize (speed 3) (safety 0)))
   (when *data-registry*
-    (gethash pointer *data-registry*)))
+    (gethash pointer (the hash-table *data-registry*))))
 
 (defun (setf deref-data-from-pointer) (data pointer)
   (setf (gethash pointer *data-registry*) data))
 
 (defun remove-pointer-from-registry (pointer)
+  (declare (optimize (speed 3) (safety 0)))
   (when *data-registry*
-    (remhash pointer *data-registry*)))
+    (remhash pointer (the hash-table *data-registry*))))
 
 (defmacro with-event-loop (&body body)
   `(let ((*evloop* (ev::ev_loop_new 0))

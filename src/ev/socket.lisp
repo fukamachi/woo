@@ -70,6 +70,8 @@
                     ev:EV_READ)
     socket))
 
+(declaim (inline socket-read-watcher socket-write-watcher))
+
 (defun socket-read-watcher (socket)
   (svref (socket-watchers socket) 0))
 
