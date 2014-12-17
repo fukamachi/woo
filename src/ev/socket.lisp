@@ -8,9 +8,15 @@
   (:import-from :woo.ev.util
                 :io-fd
                 :define-c-callback)
-  (:import-from :iolib.syscalls
+  (:import-from :woo.ev.syscall
                 #+nil :close
-                #+nil :write)
+                #+nil :write
+                :errno
+                :EWOULDBLOCK
+                :EINTR
+                :ECONNABORTED
+                :ECONNREFUSED
+                :ECONNRESET)
   (:import-from :iolib.sockets
                 :%shutdown
                 :shut-rdwr
@@ -134,26 +140,35 @@
       (let ((nwrote 0)
             (len (length data)))
         (declare (dynamic-extent nwrote))
-        (handler-case
-            (progn
-              (loop
-                for n = (isys:write fd data-sap len)
-                do (incf nwrote n)
-                until (= nwrote len)
-                do (cffi:incf-pointer data-sap n))
-              (when write-cb
-                (funcall (the function write-cb) socket)
-                (setf (socket-write-cb socket) nil))
-              (reset-buffer socket)
-              T)
-          ((or isys:EWOULDBLOCK isys:EINTR) ()
-            (reset-buffer socket)
-            (write-socket-data socket data :start nwrote)
-            nil)
-          ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
-            (vom:error e)
-            (close-socket socket)
-            T))))))
+        (loop
+          (let ((n (wsys:write fd data-sap len)))
+            (declare (dynamic-extent n))
+            (case n
+              (-1
+               (let ((errno (errno)))
+                 (return-from flush-buffer
+                   (case errno
+                     ((wsys:EWOULDBLOCK
+                       wsys:EINTR)
+                      nil)
+                     ((wsys:ECONNABORTED
+                       wsys:ECONNREFUSED
+                       wsys:ECONNRESET)
+                      (vom:error "Connection is already closed (Code: ~D)" errno)
+                      (close-socket socket)
+                      t)
+                     (otherwise
+                      (error "Unexpected error (Code: ~D)" errno))))))
+              (otherwise
+               (incf nwrote n)
+               (if (= nwrote len)
+                   (return)
+                   (cffi:incf-pointer data-sap n))))))
+        (when write-cb
+          (funcall (the function write-cb) socket)
+          (setf (socket-write-cb socket) nil))
+        (reset-buffer socket)
+        T))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
   (declare (ignore events))

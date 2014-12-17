@@ -17,7 +17,7 @@
   :author "Eitaro Fukamachi"
   :license "MIT"
   :depends-on (:ev
-               :iolib
+               :iolib/sockets
                :cffi
                :static-vectors
                :fast-http
@@ -38,9 +38,10 @@
                   :pathname "ev"
                   :components
                   ((:file "event-loop")
-                   (:file "socket" :depends-on ("event-loop" "util"))
-                   (:file "tcp" :depends-on ("event-loop" "socket" "util"))
+                   (:file "socket" :depends-on ("event-loop" "syscall" "util"))
+                   (:file "tcp" :depends-on ("event-loop" "socket" "syscall" "util"))
                    (:file "condition")
+                   (:file "syscall")
                    (:file "util"))))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
