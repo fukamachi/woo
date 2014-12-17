@@ -4,7 +4,8 @@
   (:use :cl)
   (:import-from :woo.ev.tcp
                 :tcp-server
-                :close-tcp-server)
+                :close-tcp-server
+                :*connection-timeout*)
   (:import-from :woo.ev.socket
                 :socket
                 :socket-open-p
@@ -31,6 +32,7 @@
            :socket-data
            :close-socket
            :*buffer-size*
+           :*connection-timeout*
 
            ;; conditions
            :tcp-error

@@ -11,7 +11,9 @@
                 :make-socket
                 :close-socket
                 :socket-read-cb
-                :socket-read-watcher)
+                :socket-read-watcher
+                :socket-timeout-timer
+                :socket-last-activity)
   (:import-from :woo.ev.syscall
                 :set-fd-nonblock
                 #+nil :close
@@ -27,10 +29,16 @@
                 :define-c-callback
                 :io-fd)
   (:import-from :ev
+                :ev_io
+                :ev_now
                 :ev_io_init
                 :ev_io_start
                 :ev_io_stop
-                :EV_READ)
+                :ev_timer
+                :ev_timer_init
+                :ev_timer_again
+                :EV_READ
+                :EV_TIMEOUT)
   (:import-from :iolib.sockets
                 #+nil :make-socket
                 :make-address
@@ -41,12 +49,17 @@
                 :*default-backlog-size*)
   (:import-from :cffi
                 :foreign-alloc
-                :foreign-free)
+                :foreign-free
+                :foreign-slot-value)
   (:import-from :split-sequence
                 :split-sequence)
   (:export :tcp-server
-           :close-tcp-server))
+           :close-tcp-server
+           :*connection-timeout*))
 (in-package :woo.ev.tcp)
+
+(declaim (type double-float *connection-timeout*))
+(defparameter *connection-timeout* (coerce (* 15 60) 'double-float))
 
 (define-c-callback tcp-read-cb :void ((evloop :pointer) (watcher :pointer) (events :int))
   (declare (ignore evloop events))
@@ -71,13 +84,31 @@
            (return))
           (0
            ;; EOF
+           (setf (socket-last-activity socket) (ev::ev_now *evloop*))
            (close-socket socket)
            (return))
           (otherwise
+           (setf (socket-last-activity socket) (ev::ev_now *evloop*))
            (when read-cb
              (funcall (the function read-cb) socket *input-buffer* :start 0 :end n))
            (unless (= n buffer-len)
              (return))))))))
+
+(define-c-callback timeout-cb :void ((evloop :pointer) (timer :pointer) (events :int))
+  (declare (ignore events))
+  (let* ((now (ev::ev_now evloop))
+         (fd (io-fd (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::data)))
+         (socket (deref-data-from-pointer fd))
+         (timeout (+ (socket-last-activity socket) *connection-timeout*)))
+    (declare (type double-float now timeout))
+    (if (< timeout now)
+        (progn
+          (vom:info "Timeout, closing connection")
+          (close-socket socket))
+        (progn
+          (setf (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::repeat)
+                (- timeout now))
+          (ev::ev_timer_again evloop timer)))))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
@@ -103,7 +134,11 @@
                (funcall (the function connect-cb) socket))
              (when read-cb
                (setf (socket-read-cb socket) read-cb)))
-           (ev::ev_io_start evloop (socket-read-watcher socket))))))))
+           (ev::ev_io_start evloop (socket-read-watcher socket))
+           (let ((timer (socket-timeout-timer socket)))
+             (ev::ev_timer_init timer 'timeout-cb *connection-timeout* 0.0d0)
+             (setf (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::data) (socket-read-watcher socket))
+             (timeout-cb evloop timer ev::EV_TIMEOUT))))))))
 
 (defun listen-on (address port &key (backlog *default-backlog-size*))
   (let ((address (sockets:make-address

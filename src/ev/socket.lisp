@@ -22,9 +22,13 @@
                 :shut-rdwr
                 :socket-not-connected-error)
   (:import-from :ev
+                :ev_now
+                :ev_io
                 :ev_io_init
                 :ev_io_start
                 :ev_io_stop
+                :ev_timer
+                :ev_timer_stop
                 :EV_WRITE)
   (:import-from :fast-io
                 :make-output-buffer
@@ -41,6 +45,8 @@
            :make-socket
            :socket-read-watcher
            :socket-write-watcher
+           :socket-timeout-timer
+           :socket-last-activity
            :socket-data
            :socket-read-cb
            :socket-open-p
@@ -54,11 +60,13 @@
 (in-package :woo.ev.socket)
 
 (defstruct (socket (:constructor %make-socket))
-  (watchers (make-array 2
+  (watchers (make-array 3
                         :element-type 'cffi:foreign-pointer
                         :initial-contents (list (cffi:foreign-alloc 'ev::ev_io)
-                                                (cffi:foreign-alloc 'ev::ev_io)))
-   :type (simple-array cffi:foreign-pointer (2)))
+                                                (cffi:foreign-alloc 'ev::ev_io)
+                                                (cffi:foreign-alloc 'ev::ev_timer)))
+   :type (simple-array cffi:foreign-pointer (3)))
+  (last-activity (ev::ev_now *evloop*) :type double-float)
   (fd nil :type fixnum)
   data
   (tcp-read-cb nil :type symbol)
@@ -76,7 +84,7 @@
                     ev:EV_READ)
     socket))
 
-(declaim (inline socket-read-watcher socket-write-watcher))
+(declaim (inline socket-read-watcher socket-write-watcher socket-timeout-timer))
 
 (defun socket-read-watcher (socket)
   (svref (socket-watchers socket) 0))
@@ -84,13 +92,19 @@
 (defun socket-write-watcher (socket)
   (svref (socket-watchers socket) 1))
 
+(defun socket-timeout-timer (socket)
+  (svref (socket-watchers socket) 2))
+
 (defun close-socket (socket)
   (let ((read-watcher (socket-read-watcher socket))
-        (write-watcher (socket-write-watcher socket)))
+        (write-watcher (socket-write-watcher socket))
+        (timeout-timer (socket-timeout-timer socket)))
     (ev::ev_io_stop *evloop* read-watcher)
     (ev::ev_io_stop *evloop* write-watcher)
+    (ev::ev_timer_stop *evloop* timeout-timer)
     (cffi:foreign-free read-watcher)
-    (cffi:foreign-free write-watcher))
+    (cffi:foreign-free write-watcher)
+    (cffi:foreign-free timeout-timer))
   (let ((fd (socket-fd socket)))
     (ignore-some-conditions (socket-not-connected-error)
       (sockets::%shutdown fd sockets::shut-rdwr))
@@ -160,6 +174,7 @@
                      (otherwise
                       (error "Unexpected error (Code: ~D)" errno))))))
               (otherwise
+               (setf (socket-last-activity socket) (ev::ev_now *evloop*))
                (incf nwrote n)
                (if (= nwrote len)
                    (return)
