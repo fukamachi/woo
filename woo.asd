@@ -28,7 +28,8 @@
                :vom
                :local-time
                :alexandria
-               :split-sequence)
+               :split-sequence
+               #-sbcl :osicat)
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response"))

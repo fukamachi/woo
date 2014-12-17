@@ -12,7 +12,10 @@
                 :finish-response)
   (:import-from :woo.ev
                 :*buffer-size*
-                :*connection-timeout*)
+                :*connection-timeout*
+                :*evloop*)
+  (:import-from :ev
+                :ev_loop_fork)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -56,15 +59,48 @@
 
 (defvar *default-backlog-size* +max-backlog-size+)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd)
+(cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
+  (declare (ignore signal events))
+  (ev::ev_break evloop ev::EVBREAK_ALL)
+  #+sbcl
+  (sb-ext:exit)
+  #-sbcl
+  (cl-user:quit))
+
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
+                  worker-num)
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog +max-backlog-size+)))
   (let ((*app* app)
         (*debug* debug))
-    (flet ((start-server ()
+    (flet ((start-server-multi ()
              (let (listener)
-               (unwind-protect (wev:with-event-loop
+               (unwind-protect (wev:with-event-loop (:enable-fork t)
+                                 (setq listener
+                                       (wev:tcp-server address port
+                                                       #'read-cb
+                                                       :connect-cb #'connect-cb
+                                                       :backlog backlog
+                                                       :fd fd))
+                                 (let ((signal-watcher (cffi:foreign-alloc 'ev::ev_signal)))
+                                   (wev:ev_signal_init signal-watcher 'sigint-cb #+sbcl sb-posix:sigint
+                                                                                 #-sbcl osicat-posix:sigint)
+                                   (ev::ev_signal_start *evloop* signal-watcher))
+                                 (let ((times worker-num))
+                                   (tagbody forking
+                                      (let ((pid #+sbcl (sb-posix:fork)
+                                                 #-sbcl (osicat-posix:fork)))
+                                        (if (zerop pid)
+                                            (unless (zerop (decf times))
+                                              (go forking))
+                                            (progn
+                                              (ev::ev_loop_fork wev:*evloop*)
+                                              (format t "Worker started: ~A~%" pid)))))))
+                 (wev:close-tcp-server listener))))
+           (start-server ()
+             (let (listener)
+               (unwind-protect (wev:with-event-loop ()
                                  (setq listener
                                        (wev:tcp-server address port
                                                        #'read-cb
@@ -72,7 +108,7 @@
                                                        :backlog backlog
                                                        :fd fd)))
                  (wev:close-tcp-server listener)))))
-      (funcall #'start-server))))
+      (funcall (if worker-num #'start-server-multi #'start-server)))))
 
 (defun connect-cb (socket)
   (setup-parser socket))

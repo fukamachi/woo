@@ -55,8 +55,10 @@
   (when *data-registry*
     (remhash pointer (the hash-table *data-registry*))))
 
-(defmacro with-event-loop (&body body)
-  `(let ((*evloop* (ev::ev_loop_new 0))
+(defmacro with-event-loop ((&key enable-fork) &body body)
+  `(let ((*evloop* (ev::ev_loop_new (if ,enable-fork
+                                        ev::EVFLAG_FORKCHECK
+                                        0)))
          (*callbacks* (make-hash-table :test 'eql))
          (*data-registry* (make-hash-table :test 'eql))
          (*input-buffer* (make-static-vector *buffer-size*)))

@@ -17,7 +17,8 @@
                 :with-async-writing)
   (:import-from :woo.ev.event-loop
                 :with-event-loop
-                :*buffer-size*)
+                :*buffer-size*
+                :*evloop*)
   (:import-from :woo.ev.condition
                 :tcp-error
                 :socket-closed)
@@ -33,8 +34,20 @@
            :close-socket
            :*buffer-size*
            :*connection-timeout*
+           :*evloop*
 
            ;; conditions
            :tcp-error
-           :socket-closed))
+           :socket-closed
+
+           ;; Extensions to ev
+           :ev_signal_set
+           :ev_signal_init))
 (in-package :woo.ev)
+
+(defun ev_signal_set (ev signum)
+  (setf (cffi:foreign-slot-value ev 'ev::ev_signal 'ev::signum) signum))
+
+(defun ev_signal_init (ev cb signum)
+  (ev::ev_init ev cb)
+  (ev_signal_set ev signum))
