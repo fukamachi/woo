@@ -221,20 +221,23 @@
 
       (etypecase body
         (null
-         (wev:with-async-writing (socket)
-           (write-response-headers socket status headers)
-           (finish-response socket)))
+         (wev:with-async-writing (socket :write-cb (and close
+                                                        (lambda (socket)
+                                                          (wev:close-socket socket))))
+           (write-response-headers socket status headers (not close))))
         (pathname
          (setf (getf headers :transfer-encoding) "chunked")
-         (wev:with-async-writing (socket)
-           (write-response-headers socket status headers)
+         (wev:with-async-writing (socket :write-cb (and close
+                                                        (lambda (socket)
+                                                          (wev:close-socket socket))))
+           (write-response-headers socket status headers (not close))
            (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8))))
              (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
                (loop
                  for n = (read-sequence buffer in)
                  until (zerop n)
                  do (write-body-chunk socket buffer :end n)))
-             (finish-response socket *empty-chunk*))))
+             (wev:write-socket-data socket *empty-chunk*))))
         (list
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
