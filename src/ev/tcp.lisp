@@ -153,19 +153,29 @@
     (%listen (fd-of socket) backlog)
     (fd-of socket)))
 
-(defun make-listener (address port &key backlog)
-  (let ((fd (listen-on address port :backlog backlog))
+(defun listen-on-fd (fd &key (backlog *default-backlog-size*))
+  (set-fd-nonblock fd t)
+  (%listen fd backlog)
+  fd)
+
+(defun make-listener (address port &key backlog fd)
+  (let ((fd (if fd
+                (listen-on-fd fd :backlog backlog)
+                (listen-on address port :backlog backlog)))
         (listener (cffi:foreign-alloc 'ev::ev_io)))
     (ev::ev_io_init listener 'tcp-accept-cb fd ev:EV_READ)
     listener))
 
-(defun tcp-server (address port read-cb &key connect-cb (backlog *default-backlog-size*))
+(defun tcp-server (address port read-cb &key connect-cb (backlog *default-backlog-size*) fd)
   (check-event-loop-running)
-  (let ((listener (make-listener address port :backlog backlog)))
+  (let ((listener (make-listener address port :backlog backlog :fd fd)))
     (ev::ev_io_start *evloop* listener)
     (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
     listener))
 
 (defun close-tcp-server (watcher)
-  (wsys:close (io-fd watcher))
-  (cffi:foreign-free watcher))
+  (when watcher
+    (let ((fd (io-fd watcher)))
+      (when fd
+        (wsys:close fd)))
+    (cffi:foreign-free watcher)))

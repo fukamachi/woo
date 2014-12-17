@@ -56,7 +56,7 @@
 
 (defvar *default-backlog-size* +max-backlog-size+)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*))
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd)
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog +max-backlog-size+)))
@@ -69,7 +69,8 @@
                                        (wev:tcp-server address port
                                                        #'read-cb
                                                        :connect-cb #'connect-cb
-                                                       :backlog backlog)))
+                                                       :backlog backlog
+                                                       :fd fd)))
                  (wev:close-tcp-server listener)))))
       (funcall #'start-server))))
 
