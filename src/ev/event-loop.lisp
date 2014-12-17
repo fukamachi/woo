@@ -59,6 +59,11 @@
      (unwind-protect (progn
                        ,@body
                        (ev::ev_run *evloop* 0))
+       (let ((close-socket-fn (intern #.(string :close-socket) (find-package #.(string :woo.ev.socket)))))
+         (maphash (lambda (fd socket)
+                    (declare (ignore fd))
+                    (funcall close-socket-fn socket))
+                  *data-registry*))
        (free-static-vector *input-buffer*)
        (cffi:foreign-free *evloop*))))
 
