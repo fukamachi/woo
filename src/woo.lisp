@@ -4,8 +4,8 @@
   (:use :cl)
   (:import-from :woo.response
                 :*empty-chunk*
-                :fast-write-crlf
-                :fast-write-string
+                :write-socket-string
+                :write-socket-crlf
                 :response-headers-bytes
                 :write-response-headers
                 :write-body-chunk
@@ -28,7 +28,6 @@
                 :make-output-buffer
                 :finish-output-buffer
                 :with-fast-output
-                :fast-write-sequence
                 :fast-write-byte)
   (:import-from :iolib.sockets
                 :+max-backlog-size+)
@@ -206,85 +205,83 @@
       (when (eq body no-body)
         (let ((default-close close))
           (setf (getf headers :transfer-encoding) "chunked")
-          (write-response-headers socket status headers)
+          (wev:with-async-writing (socket)
+            (write-response-headers socket status headers))
           (return-from handle-normal-response
             (lambda (body &key (close nil close-specified-p))
-              (etypecase body
-                (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
-                (vector (write-body-chunk socket body)))
-              (setq close (if close-specified-p
-                              close
-                              default-close))
-              (when close
-                (finish-response socket *empty-chunk*))))))
+              (wev:with-async-writing (socket)
+                (etypecase body
+                  (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
+                  (vector (write-body-chunk socket body)))
+                (setq close (if close-specified-p
+                                close
+                                default-close))
+                (when close
+                  (finish-response socket *empty-chunk*)))))))
 
       (etypecase body
         (null
-         (write-response-headers socket status headers)
-         (finish-response socket))
+         (wev:with-async-writing (socket)
+           (write-response-headers socket status headers)
+           (finish-response socket)))
         (pathname
          (setf (getf headers :transfer-encoding) "chunked")
-         (write-response-headers socket status headers)
-         (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8))))
-           (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
-             (loop
-               for n = (read-sequence buffer in)
-               until (zerop n)
-               do (write-body-chunk socket buffer :end n)))
-           (finish-response socket *empty-chunk*)))
+         (wev:with-async-writing (socket)
+           (write-response-headers socket status headers)
+           (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8))))
+             (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
+               (loop
+                 for n = (read-sequence buffer in)
+                 until (zerop n)
+                 do (write-body-chunk socket buffer :end n)))
+             (finish-response socket *empty-chunk*))))
         (list
-         (wev:write-socket-data-async
-          socket
-          (with-fast-output (buffer :vector)
-            (cond
-              ((getf headers :content-length)
-               (response-headers-bytes buffer status headers (not close))
-               (fast-write-crlf buffer)
-               (loop for str in body
-                     do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))
-              (T
-               (cond
-                 ((= (http-minor-version http) 1)
-                  ;; Transfer-Encoding: chunked
-                  (response-headers-bytes buffer status headers (not close))
-                  (fast-write-sequence #.(string-to-utf-8-bytes "Transfer-Encoding: chunked") buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer)
-                  (loop for str in body
-                        for data = (string-to-utf-8-bytes str)
-                        do (fast-write-string (the simple-string (format nil "~X" (length data))) buffer)
-                           (fast-write-crlf buffer)
-                           (fast-write-sequence data buffer)
-                           (fast-write-crlf buffer))
-                  (fast-write-byte #.(char-code #\0) buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer))
-                 (T
-                  ;; calculate Content-Length
-                  (response-headers-bytes buffer status headers (not close))
-                  (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
-                  (fast-write-string
-                   (write-to-string (loop for str in body
-                                          sum (utf-8-byte-length str)))
-                   buffer)
-                  (fast-write-crlf buffer)
-                  (fast-write-crlf buffer)
-                  (loop for str in body
-                        do (fast-write-sequence (string-to-utf-8-bytes str) buffer)))))))
-          :write-cb (and close
-                         (lambda (socket)
-                           (wev:close-socket socket)))))
+         (wev:with-async-writing (socket :write-cb (and close
+                                                        (lambda (socket)
+                                                          (wev:close-socket socket))))
+           (cond
+             ((getf headers :content-length)
+              (response-headers-bytes socket status headers (not close))
+              (write-socket-crlf socket)
+              (loop for str in body
+                    do (wev:write-socket-data socket (string-to-utf-8-bytes str))))
+             (T
+              (cond
+                ((= (http-minor-version http) 1)
+                 ;; Transfer-Encoding: chunked
+                 (response-headers-bytes socket status headers (not close))
+                 (wev:write-socket-data socket #.(string-to-utf-8-bytes "Transfer-Encoding: chunked"))
+                 (write-socket-crlf socket)
+                 (write-socket-crlf socket)
+                 (loop for str in body
+                       for data = (string-to-utf-8-bytes str)
+                       do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
+                          (write-socket-crlf socket)
+                          (wev:write-socket-data socket data)
+                          (write-socket-crlf socket))
+                 (wev:write-socket-byte socket #.(char-code #\0))
+                 (write-socket-crlf socket)
+                 (write-socket-crlf socket))
+                (T
+                 ;; calculate Content-Length
+                 (response-headers-bytes socket status headers (not close))
+                 (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
+                 (write-socket-string
+                  socket
+                  (write-to-string (loop for str in body
+                                         sum (utf-8-byte-length str))))
+                 (write-socket-crlf socket)
+                 (write-socket-crlf socket)
+                 (loop for str in body
+                       do (wev:write-socket-data socket (string-to-utf-8-bytes str)))))))))
         ((vector (unsigned-byte 8))
-         (wev:write-socket-data
-          socket
-          (with-fast-output (buffer :vector)
-            (response-headers-bytes buffer status headers (not close))
-            (unless (getf headers :content-length)
-              (fast-write-sequence #.(string-to-utf-8-bytes "Content-Length: ") buffer)
-              (fast-write-string (write-to-string (length body)) buffer )
-              (fast-write-crlf buffer))
-            (fast-write-crlf buffer)
-            (fast-write-sequence body buffer))
-          :write-cb (and close
-                         (lambda (socket)
-                           (wev:close-socket socket)))))))))
+         (wev:with-async-writing (socket :write-cb (and close
+                                                        (lambda (socket)
+                                                          (wev:close-socket socket))))
+           (response-headers-bytes socket status headers (not close))
+           (unless (getf headers :content-length)
+             (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
+             (write-socket-string socket (write-to-string (length body)))
+             (write-socket-crlf socket))
+           (write-socket-crlf socket)
+           (wev:write-socket-data socket body)))))))

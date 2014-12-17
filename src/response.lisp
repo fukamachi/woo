@@ -1,21 +1,21 @@
 (in-package :cl-user)
 (defpackage woo.response
   (:use :cl)
-  (:import-from :fast-io
-                :with-fast-output
-                :fast-write-sequence
-                :fast-write-byte)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes)
   (:export :*empty-chunk*
            :*empty-bytes*
-           :fast-write-crlf
+           :*crlf*
+           :write-socket-string
+           :write-socket-crlf
            :response-headers-bytes
            :write-response-headers
            :write-body-chunk
            :start-chunked-response
            :finish-response))
 (in-package :woo.response)
+
+(declaim (inline wev:write-socket-data wev:write-socket-byte))
 
 (defun status-code-to-text (code)
   (cond
@@ -96,17 +96,19 @@
 (defvar *empty-bytes*
   #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
-(declaim (inline fast-write-string fast-write-crlf))
+(defvar *crlf*
+  (trivial-utf-8:string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline)))
 
-(defun fast-write-string (string buffer)
+(declaim (inline write-socket-string write-socket-crlf))
+
+(defun write-socket-string (socket string)
   (declare (optimize (speed 3) (safety 0)))
   (loop for char of-type character across string
-        do (fast-write-byte (char-code char) buffer)))
+        do (wev:write-socket-byte socket (char-code char))))
 
-(defun fast-write-crlf (buffer)
+(defun write-socket-crlf (socket)
   (declare (optimize (speed 3) (safety 0)))
-  (fast-write-byte #.(char-code #\Return) buffer)
-  (fast-write-byte #.(char-code #\Newline) buffer))
+  (wev:write-socket-data socket *crlf*))
 
 (declaim (type (simple-array character (31)) *date-header*))
 (defvar *date-header* (make-string 31))
@@ -207,30 +209,27 @@
           (write-int-to-date offset-min 29)))))
   *date-header*)
 
-(defun response-headers-bytes (buffer status headers &optional keep-alive-p)
-  (fast-write-sequence (gethash status *status-line*) buffer)
+(defun response-headers-bytes (socket status headers &optional keep-alive-p)
+  (wev:write-socket-data socket (gethash status *status-line*))
   ;; Send default headers
-  (fast-write-sequence #.(string-to-utf-8-bytes "Date: ") buffer)
-  (fast-write-string (current-rfc-1123-timestamp) buffer)
-  (fast-write-crlf buffer)
+  (wev:write-socket-data socket #.(string-to-utf-8-bytes "Date: "))
+  (write-socket-string socket (current-rfc-1123-timestamp))
+  (write-socket-crlf socket)
 
   (when keep-alive-p
-    (fast-write-sequence
+    (wev:write-socket-data
+     socket
      #.(string-to-utf-8-bytes
-        (format nil "Connection: keep-alive~C~C" #\Return #\Newline))
-     buffer))
+        (format nil "Connection: keep-alive~C~C" #\Return #\Newline))))
 
   (loop for (k v) on headers by #'cddr
         when v
-          do (fast-write-string (format nil "~:(~A~): ~A" k v) buffer)
-             (fast-write-crlf buffer)))
+          do (write-socket-string socket (format nil "~:(~A~): ~A" k v))
+             (write-socket-crlf socket)))
 
 (defun write-response-headers (socket status headers &optional keep-alive-p)
-  (wev:write-socket-data
-   socket
-   (with-fast-output (buffer :vector)
-     (response-headers-bytes buffer status headers keep-alive-p)
-     (fast-write-crlf buffer))))
+  (response-headers-bytes socket status headers keep-alive-p)
+  (write-socket-crlf socket))
 
 (defun write-body-chunk (socket chunk &key (start 0) (end (length chunk)))
   (check-type chunk (simple-array (unsigned-byte 8) (*)))
@@ -244,3 +243,5 @@
   (wev:write-socket-data socket body
                          :write-cb (lambda (socket)
                                      (wev:close-socket socket))))
+
+(declaim (notinline wev:write-socket-data wev:write-socket-byte))

@@ -20,11 +20,15 @@
                 :ev_io_start
                 :ev_io_stop
                 :EV_WRITE)
+  (:import-from :fast-io
+                :make-output-buffer
+                :fast-write-sequence
+                :fast-write-byte
+                :finish-output-buffer)
   (:import-from :cffi
                 :with-pointer-to-vector-data
                 :incf-pointer
-                :foreign-free
-                :null-pointer)
+                :foreign-free)
   (:import-from :alexandria
                 :ignore-some-conditions)
   (:export :socket
@@ -37,7 +41,9 @@
            :check-socket-open
 
            :write-socket-data
-           :write-socket-data-async
+           :write-socket-byte
+           :flush-buffer
+           :with-async-writing
            :close-socket))
 (in-package :woo.ev.socket)
 
@@ -54,9 +60,7 @@
   (write-cb nil :type (or null function))
   (open-p t :type boolean)
 
-  (buffer nil :type (or null (simple-array (unsigned-byte 8) (*))))
-  (buffer-start nil :type (or null integer))
-  (buffer-end nil :type (or null integer)))
+  (buffer (make-output-buffer)))
 
 (defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
   (let ((socket (apply #'%make-socket initargs)))
@@ -96,12 +100,37 @@
 
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         write-cb)
+  (declare (optimize speed)
+           (type (simple-array (unsigned-byte 8) (*)) data))
+  (setf (socket-write-cb socket) write-cb)
+  (fast-write-sequence data (socket-buffer socket)
+                       start end))
+
+(defun write-socket-byte (socket byte &key write-cb)
+  (declare (optimize speed)
+           (type (unsigned-byte 8) byte))
+  (setf (socket-write-cb socket) write-cb)
+  (fast-write-byte byte (socket-buffer socket)))
+
+(declaim (inline reset-buffer))
+(defun reset-buffer (socket)
+  (let ((buffer (socket-buffer socket)))
+    (setf (fast-io::output-buffer-vector buffer) (fast-io::make-octet-vector fast-io:*default-output-buffer-size*)
+          (fast-io::output-buffer-fill buffer) 0
+          (fast-io::output-buffer-len buffer) 0
+          (fast-io::output-buffer-queue buffer) nil
+          (fast-io::output-buffer-last buffer) nil)))
+
+(defun flush-buffer (socket)
+  (declare (optimize (speed 3) (safety 0)))
   (check-socket-open socket)
-  (let ((fd (socket-fd socket)))
+  (let ((data (finish-output-buffer (socket-buffer socket)))
+        (fd (socket-fd socket))
+        (write-cb (socket-write-cb socket)))
+    (declare (type (simple-array (unsigned-byte 8) (*)) data))
     (cffi:with-pointer-to-vector-data (data-sap data)
-      (cffi:incf-pointer data-sap start)
       (let ((nwrote 0)
-            (len (- end start)))
+            (len (length data)))
         (declare (dynamic-extent nwrote))
         (handler-case
             (progn
@@ -111,9 +140,13 @@
                 until (= nwrote len)
                 do (cffi:incf-pointer data-sap n))
               (when write-cb
-                (funcall (the function write-cb) socket))
+                (funcall (the function write-cb) socket)
+                (setf (socket-write-cb socket) nil))
+              (reset-buffer socket)
               T)
           ((or isys:EWOULDBLOCK isys:EINTR) ()
+            (reset-buffer socket)
+            (write-socket-data socket data :start nwrote)
             nil)
           ((or isys:ECONNABORTED isys:ECONNREFUSED isys:ECONNRESET) (e)
             (vom:error e)
@@ -129,27 +162,19 @@
       (cffi:foreign-free io)
       (return-from async-write-cb))
 
-    (let ((completedp
-            (write-socket-data socket (socket-buffer socket)
-                               :start (socket-buffer-start socket)
-                               :end (socket-buffer-end socket)
-                               :write-cb (socket-write-cb socket))))
-
+    (let ((completedp (flush-buffer socket)))
       (when completedp
-        (setf (socket-write-cb socket) nil
-              (socket-buffer socket) nil)
         (ev::ev_io_stop evloop io)))))
 
-(defun write-socket-data-async (socket data &key (start 0) (end (length data))
-                                              write-cb)
-  (check-socket-open socket)
-  (assert (null (socket-buffer socket)))
-  (setf (socket-buffer socket) data
-        (socket-buffer-start socket) start
-        (socket-buffer-end socket) end
-        (socket-write-cb socket) write-cb)
+(defun init-write-io (socket &key write-cb)
+  (setf (socket-write-cb socket) write-cb)
   (let ((io (socket-write-watcher socket))
         (fd (socket-fd socket)))
     (ev::ev_io_init io 'async-write-cb fd ev:EV_WRITE)
     (ev::ev_io_start *evloop* io)
     t))
+
+(defmacro with-async-writing ((socket &key write-cb) &body body)
+  `(progn
+     ,@body
+     (init-write-io ,socket :write-cb ,write-cb)))

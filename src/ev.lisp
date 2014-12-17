@@ -11,7 +11,9 @@
                 :socket-data
                 :close-socket
                 :write-socket-data
-                :write-socket-data-async)
+                :write-socket-byte
+                :flush-buffer
+                :with-async-writing)
   (:import-from :woo.ev.event-loop
                 :with-event-loop
                 :*buffer-size*)
@@ -24,7 +26,8 @@
            :tcp-server
            :close-tcp-server
            :write-socket-data
-           :write-socket-data-async
+           :write-socket-byte
+           :with-async-writing
            :socket-data
            :close-socket
            :*buffer-size*
