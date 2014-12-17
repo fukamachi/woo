@@ -10,6 +10,9 @@
                 :write-response-headers
                 :write-body-chunk
                 :finish-response)
+  (:import-from :woo.ev
+                :*buffer-size*
+                :*connection-timeout*)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -42,13 +45,18 @@
                 :copy-stream
                 :if-let)
   (:export :run
-           :stop))
+           :stop
+           :*buffer-size*
+           :*connection-timeout*
+           :*default-backlog-size*))
 (in-package :woo)
 
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog +max-backlog-size+))
+(defvar *default-backlog-size* +max-backlog-size+)
+
+(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*))
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog +max-backlog-size+)))
