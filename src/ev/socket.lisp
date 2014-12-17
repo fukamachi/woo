@@ -11,7 +11,6 @@
   (:import-from :woo.ev.syscall
                 #+nil :close
                 #+nil :write
-                :errno
                 :EWOULDBLOCK
                 :EINTR
                 :ECONNABORTED
@@ -159,19 +158,19 @@
             (declare (dynamic-extent n))
             (case n
               (-1
-               (let ((errno (errno)))
+               (let ((errno (isys:errno)))
                  (return-from flush-buffer
-                   (case errno
-                     ((wsys:EWOULDBLOCK
-                       wsys:EINTR)
+                   (cond
+                     ((or (= errno wsys:EWOULDBLOCK)
+                          (= errno wsys:EINTR))
                       nil)
-                     ((wsys:ECONNABORTED
-                       wsys:ECONNREFUSED
-                       wsys:ECONNRESET)
+                     ((or (= errno wsys:ECONNABORTED)
+                          (= errno wsys:ECONNREFUSED)
+                          (= errno wsys:ECONNRESET))
                       (vom:error "Connection is already closed (Code: ~D)" errno)
                       (close-socket socket)
                       t)
-                     (otherwise
+                     (t
                       (error "Unexpected error (Code: ~D)" errno))))))
               (otherwise
                (setf (socket-last-activity socket) (ev::ev_now *evloop*))

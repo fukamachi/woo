@@ -18,7 +18,6 @@
                 :set-fd-nonblock
                 #+nil :close
                 #+nil :read
-                :errno
                 :EWOULDBLOCK
                 :ECONNABORTED
                 :ECONNREFUSED
@@ -72,14 +71,16 @@
         (declare (dynamic-extent n))
         (case n
           (-1
-           (let ((errno (wsys:errno)))
-             (case errno
-               ((wsys:EWOULDBLOCK
-                 wsys:EINTR))
-               ((wsys:ECONNABORTED wsys:ECONNREFUSED wsys:ECONNRESET)
+           (let ((errno (isys:errno)))
+             (cond
+               ((or (= errno wsys:EWOULDBLOCK)
+                    (= errno wsys:EINTR)))
+               ((or (= errno wsys:ECONNABORTED)
+                    (= errno wsys:ECONNREFUSED)
+                    (= errno wsys:ECONNRESET))
                 (vom:error "Connection is already closed (Code: ~D)" errno)
                 (close-socket socket))
-               (otherwise
+               (t
                 (error "Unexpected error (Code: ~D)" errno))))
            (return))
           (0
@@ -116,13 +117,13 @@
     (let* ((fd (io-fd listener))
            (client-fd (wsys:accept fd sockaddr size)))
       (case client-fd
-        (-1 (let ((errno (errno)))
-              (case errno
-                ((wsys:EWOULDBLOCK
-                  wsys:ECONNABORTED
-                  wsys:EPROTO
-                  wsys:EINTR))
-                (otherwise
+        (-1 (let ((errno (isys:errno)))
+              (cond
+                ((or (= errno wsys:EWOULDBLOCK)
+                     (= errno wsys:ECONNABORTED)
+                     (= errno wsys:EPROTO)
+                     (= errno wsys:EINTR)))
+                (t
                  (error "Can't accept connection (Code: ~D)" errno)))))
         (otherwise
          (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))

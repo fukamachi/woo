@@ -12,7 +12,6 @@
            :read
            :accept
            :set-fd-nonblock
-           :errno
            :EWOULDBLOCK
            :EINTR
            :EPROTO
@@ -65,8 +64,6 @@
           (if (= new-flags current-flags)
               (%fcntl/int fd F-SETFL new-flags)
               0)))))
-
-(defcfun (errno "errno") :int)
 
 (defcfun ("accept") :int
   (socket :int)
