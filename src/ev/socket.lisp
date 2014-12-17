@@ -144,7 +144,7 @@
           (fast-io::output-buffer-last buffer) nil)))
 
 (defun flush-buffer (socket)
-  (declare (optimize (speed 3) (safety 0)))
+  (declare (optimize speed))
   (check-socket-open socket)
   (let ((data (finish-output-buffer (socket-buffer socket)))
         (fd (socket-fd socket))
