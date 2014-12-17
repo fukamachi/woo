@@ -59,7 +59,7 @@
 (in-package :woo.ev.tcp)
 
 (declaim (type double-float *connection-timeout*))
-(defparameter *connection-timeout* (coerce (* 15 60) 'double-float))
+(defvar *connection-timeout* (coerce (* 15 60) 'double-float))
 
 (define-c-callback tcp-read-cb :void ((evloop :pointer) (watcher :pointer) (events :int))
   (declare (ignore evloop events))
