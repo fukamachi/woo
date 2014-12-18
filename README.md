@@ -1,6 +1,6 @@
 # Woo
 
-Woo is a non-blocking HTTP server written in Common Lisp built on top of [libev](http://software.schmorp.de/pkg/libev.html) and [fast-http](https://github.com/fukamachi/fast-http).
+Woo is a fast non-blocking HTTP server built on top of [libev](http://software.schmorp.de/pkg/libev.html). The goal is to be the fastest web server in Common Lisp.
 
 ## Warning
 
@@ -31,6 +31,22 @@ This library is still under development and considered ALPHA quality.
   :server :woo
   :use-default-middlewares nil)
 ```
+
+### Cluster
+
+```common-lisp
+(woo:run
+  (lambda (env)
+    (declare (ignore env))
+    '(200 (:content-type "text/plain") ("Hello, World")))
+  :worker-num 4)
+```
+
+## Requirements
+
+* UNIX (GNU Linux, Mac, *BSD)
+* [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
+* [libev](http://libev.schmorp.de)
 
 ## Benchmark
 
@@ -209,20 +225,6 @@ Requests/sec:  26922.81
 Transfer/sec:      3.31MB
 ```
 
-## Installation
-
-```
-cd ~/common-lisp
-git clone https://github.com/fukamachi/xsubseq
-git clone https://github.com/fukamachi/fast-http
-git clone https://github.com/fukamachi/quri
-git clone https://github.com/fukamachi/woo
-```
-
-```common-lisp
-(ql:quickload :woo)
-```
-
 ## TODO
 
 * SSL
@@ -230,8 +232,7 @@ git clone https://github.com/fukamachi/woo
 
 ## See Also
 
-* [cl-async](http://orthecreedence.github.com/cl-async)
-* [fast-http](https://github.com/fukamachi/fast-http)
+* [libev](http://software.schmorp.de/pkg/libev.html)
 * [Wookie](http://wookie.beeets.com)
 * [Clack](http://clacklisp.org/)
 
