@@ -61,15 +61,16 @@
        (415 "Unsupported Media Type")
        (416 "Requested range not satisfiable")
        (417 "Expectation Failed")))
-    ((<= 500 code)
-     (ecase code
+    (T
+     (case code
        (500 "Internal Server Error")
        (501 "Not Implemented")
        (502 "Bad Gateway")
        (503 "Service Unavailable")
        (504 "Gateway Time-out")
-       (505 "HTTP Version not supported")))
-    (T (error "Invalid status code: ~A" code))))
+       (505 "HTTP Version not supported")
+       (otherwise
+        (error "Invalid status code: ~A" code))))))
 
 (defvar *status-line* (make-hash-table :test 'eql))
 
