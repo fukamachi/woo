@@ -75,7 +75,8 @@
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server-multi ()
-             (let (listener)
+             (let (listener
+                   (signal-watcher (cffi:foreign-alloc 'ev::ev_signal)))
                (unwind-protect (wev:with-event-loop (:enable-fork t)
                                  (setq listener
                                        (wev:tcp-server address port
@@ -83,21 +84,20 @@
                                                        :connect-cb #'connect-cb
                                                        :backlog backlog
                                                        :fd fd))
-                                 (let ((signal-watcher (cffi:foreign-alloc 'ev::ev_signal)))
-                                   (wev:ev_signal_init signal-watcher 'sigint-cb #+sbcl sb-posix:sigint
-                                                                                 #-sbcl osicat-posix:sigint)
-                                   (ev::ev_signal_start *evloop* signal-watcher))
+                                 (wev:ev_signal_init signal-watcher 'sigint-cb isys:sigint)
+                                 (ev::ev_signal_start *evloop* signal-watcher)
                                  (let ((times worker-num))
                                    (tagbody forking
                                       (let ((pid #+sbcl (sb-posix:fork)
-                                                 #-sbcl (osicat-posix:fork)))
+                                                 #-sbcl (isys:fork)))
                                         (if (zerop pid)
                                             (unless (zerop (decf times))
                                               (go forking))
                                             (progn
                                               (ev::ev_loop_fork wev:*evloop*)
                                               (format t "Worker started: ~A~%" pid)))))))
-                 (wev:close-tcp-server listener))))
+                 (wev:close-tcp-server listener)
+                 (cffi:foreign-free signal-watcher))))
            (start-server ()
              (let (listener)
                (unwind-protect (wev:with-event-loop ()

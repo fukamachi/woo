@@ -17,6 +17,7 @@
   :author "Eitaro Fukamachi"
   :license "MIT"
   :depends-on (:ev
+               :iolib/syscalls
                :iolib/sockets
                :cffi
                :static-vectors
@@ -29,7 +30,7 @@
                :local-time
                :alexandria
                :split-sequence
-               #-sbcl :osicat)
+               #+sbcl :sb-posix)
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response"))
