@@ -65,12 +65,45 @@ The benchmarking environment is:
 * MacBook Pro Retina, 13-inch, Early 2013 (CPU: 3GHz Intel Core i7 / Memory: 8GB 1600 MHz)
 * wrk 3.1.1
 * SBCL 1.2.6
+* Python 2.7.8
+* PyPy 2.4.0
+* Tornado 4.0.2
 * Node.js 0.10.21
 * Quicklisp 2014-11-06
 * libevent 2.1.4-alpha (HEAD)
 * libev 4.15
 
 NOTE: Though the machine has multiple CPUs, this benchmark assumes single core environment. Some web servers has features to run on multiple CPU cores with better performance, like Hunchentoot's threaded taskmanager or Node.js's cluster.
+
+### Tornado (Python)
+
+```
+$ python benchmark/hello.py
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.83ms  218.41us   6.63ms   96.11%
+    Req/Sec   735.93     83.69     0.89k    80.07%
+  28223 requests in 10.00s, 5.57MB read
+Requests/sec:   2822.09
+Transfer/sec:    570.48KB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    39.14ms    1.02ms  45.78ms   73.21%
+    Req/Sec   641.91     37.37   825.00     82.48%
+  25504 requests in 10.01s, 5.03MB read
+Requests/sec:   2548.72
+Transfer/sec:    515.22KB
+```
 
 ### Hunchentoot (Common Lisp)
 
@@ -102,6 +135,36 @@ Running 10s test @ http://127.0.0.1:5000
   Socket errors: connect 0, read 161, write 0, timeout 387
 Requests/sec:   6406.92
 Transfer/sec:      0.96MB
+```
+
+### Tornado (PyPy)
+
+```
+$ pypy benchmark/hello.py
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     4.21ms    8.64ms  30.26ms   90.41%
+    Req/Sec     1.80k     1.11k    3.67k    56.02%
+  67132 requests in 10.00s, 13.25MB read
+Requests/sec:   6712.27
+Transfer/sec:      1.33MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    16.08ms    8.16ms  40.17ms   89.97%
+    Req/Sec     1.60k   311.97     2.16k    63.06%
+  62962 requests in 10.01s, 12.43MB read
+Requests/sec:   6292.83
+Transfer/sec:      1.24MB
 ```
 
 ### Wookie (Common Lisp)
