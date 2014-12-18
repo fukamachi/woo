@@ -10,6 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
+                :free-watchers
                 :socket-read-cb
                 :socket-read-watcher
                 :socket-timeout-timer
@@ -126,6 +127,12 @@
                 (t
                  (error "Can't accept connection (Code: ~D)" errno)))))
         (otherwise
+         ;; In case the client disappeared before closing the socket,
+         ;; a socket object remains in the data registry.
+         ;; I need to check if OS is gonna reuse the file descriptor.
+         (let ((existing-socket (deref-data-from-pointer client-fd)))
+           (when existing-socket
+             (free-watchers existing-socket)))
          (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))
            (setf (deref-data-from-pointer client-fd) socket)
            (let* ((callbacks (callbacks fd))

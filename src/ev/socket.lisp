@@ -55,7 +55,8 @@
            :write-socket-byte
            :flush-buffer
            :with-async-writing
-           :close-socket))
+           :close-socket
+           :free-watchers))
 (in-package :woo.ev.socket)
 
 (defstruct (socket (:constructor %make-socket))
@@ -94,7 +95,7 @@
 (defun socket-timeout-timer (socket)
   (svref (socket-watchers socket) 2))
 
-(defun close-socket (socket)
+(defun free-watchers (socket)
   (let ((read-watcher (socket-read-watcher socket))
         (write-watcher (socket-write-watcher socket))
         (timeout-timer (socket-timeout-timer socket)))
@@ -103,7 +104,10 @@
     (ev::ev_timer_stop *evloop* timeout-timer)
     (cffi:foreign-free read-watcher)
     (cffi:foreign-free write-watcher)
-    (cffi:foreign-free timeout-timer))
+    (cffi:foreign-free timeout-timer)))
+
+(defun close-socket (socket)
+  (free-watchers socket)
   (let ((fd (socket-fd socket)))
     (ignore-some-conditions (socket-not-connected-error)
       (sockets::%shutdown fd sockets::shut-rdwr))
