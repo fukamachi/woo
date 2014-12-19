@@ -288,6 +288,140 @@ Requests/sec:  26922.81
 Transfer/sec:      3.31MB
 ```
 
+## Benchmark for multi-core CPU
+
+![Benchmark Results (multicore)](images/benchmark-multicore.png)
+
+### Unicorn + nginx (Ruby)
+
+nginx's worker\_processes=4
+Unicorn's worker\_processes=4
+
+```
+$ unicorn -E production -c benchmark/unicorn/config.rb benchmark/unicorn/app.ru
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.56ms    9.56ms 108.21ms   98.77%
+    Req/Sec     4.09k     1.40k    9.22k    74.49%
+  153585 requests in 10.00s, 24.45MB read
+Requests/sec:  15361.96
+Transfer/sec:      2.45MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     6.60ms    4.55ms 137.92ms   89.16%
+    Req/Sec     3.96k   657.47    11.31k    81.94%
+  152428 requests in 10.00s, 24.27MB read
+Requests/sec:  15243.51
+Transfer/sec:      2.43MB
+```
+
+### Node
+
+4 cluster
+
+```
+$ node benchmark/node-cluster.js
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   334.44us  570.21us  19.06ms   90.08%
+    Req/Sec     7.46k     5.29k   20.44k    63.69%
+  280336 requests in 10.00s, 34.76MB read
+Requests/sec:  28035.25
+Transfer/sec:      3.48MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     3.85ms    5.98ms 108.27ms   95.20%
+    Req/Sec     7.73k     2.65k   31.56k    74.38%
+  285013 requests in 10.00s, 35.34MB read
+Requests/sec:  28498.97
+Transfer/sec:      3.53MB
+```
+
+### Woo
+
+worker-num=4
+
+```
+$ sbcl --load benchmark/woo-cluster.lisp
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.08ms   12.66ms 184.39ms   99.53%
+    Req/Sec     9.86k     2.25k   15.00k    68.51%
+  373207 requests in 10.00s, 46.98MB read
+Requests/sec:  37323.22
+Transfer/sec:      4.70MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     2.86ms    9.19ms 126.45ms   96.01%
+    Req/Sec    13.39k     6.71k   45.78k    67.70%
+  504881 requests in 10.00s, 63.56MB read
+Requests/sec:  50505.20
+Transfer/sec:      6.36MB
+```
+
+### Go
+
+GOMAXPROCS=4
+
+```
+$ go build benchmark/hello-maxproc.go
+$ ./hello-maxproc
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   141.53us  140.85us   8.08ms   95.00%
+    Req/Sec    13.50k     3.15k   24.44k    71.60%
+  510975 requests in 10.00s, 62.86MB read
+Requests/sec:  51101.54
+Transfer/sec:      6.29MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.75ms    1.58ms  35.92ms   95.40%
+    Req/Sec    15.55k     5.36k   62.67k    82.92%
+  583243 requests in 10.00s, 71.75MB read
+Requests/sec:  58336.29
+Transfer/sec:      7.18MB
+```
+
 ## TODO
 
 * SSL
