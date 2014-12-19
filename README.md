@@ -48,13 +48,17 @@ This library is still under development and considered ALPHA quality.
 * [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
 * [libev](http://libev.schmorp.de)
 
-## Benchmark
+## Benchmarks
 
 Comparison of the server performance to return "Hello, World" for every requests. Here's the results of requests/sec scores.
 
 ![Benchmark Results](images/benchmark.png)
 
-I used the below command of [wrk](https://github.com/wg/wrk).
+Here's the new graph when using multiple CPU cores:
+
+![Benchmark Results (multicore)](images/benchmark-multicore.png)
+
+All benchmarks were done with the below command of [wrk](https://github.com/wg/wrk).
 
 ```
 wrk -c [10 or 100] -t 4 -d 10 http://127.0.0.1:5000
@@ -68,12 +72,12 @@ The benchmarking environment is:
 * Python 2.7.8
 * PyPy 2.4.0
 * Tornado 4.0.2
+* Unicorn 4.8.3
 * Node.js 0.10.21
 * Quicklisp 2014-11-06
 * libevent 2.1.4-alpha (HEAD)
 * libev 4.15
-
-NOTE: Though the machine has multiple CPUs, this benchmark assumes single core environment. Some web servers has features to run on multiple CPU cores with better performance, like Hunchentoot's threaded taskmanager or Node.js's cluster.
+* nginx 1.6.2
 
 ### Tornado (Python)
 
@@ -288,11 +292,7 @@ Requests/sec:  26922.81
 Transfer/sec:      3.31MB
 ```
 
-## Benchmark for multi-core CPU
-
-![Benchmark Results (multicore)](images/benchmark-multicore.png)
-
-### Unicorn + nginx (Ruby)
+### Unicorn + nginx (Ruby, worker_processes=4)
 
 nginx's worker\_processes=4
 Unicorn's worker\_processes=4
@@ -325,9 +325,7 @@ Requests/sec:  15243.51
 Transfer/sec:      2.43MB
 ```
 
-### Node
-
-4 cluster
+### Node.js http module (4 cluster)
 
 ```
 $ node benchmark/node-cluster.js
@@ -357,9 +355,7 @@ Requests/sec:  28498.97
 Transfer/sec:      3.53MB
 ```
 
-### Woo
-
-worker-num=4
+### Woo (Common Lisp, worker-num=4)
 
 ```
 $ sbcl --load benchmark/woo-cluster.lisp
@@ -389,9 +385,7 @@ Requests/sec:  50505.20
 Transfer/sec:      6.36MB
 ```
 
-### Go
-
-GOMAXPROCS=4
+### Go (GOMAXPROCS=4)
 
 ```
 $ go build benchmark/hello-maxproc.go
