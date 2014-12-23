@@ -71,6 +71,7 @@ The benchmarking environment is:
 * SBCL 1.2.6
 * Python 2.7.8
 * PyPy 2.4.0
+* Go 1.3.3
 * Tornado 4.0.2
 * Unicorn 4.8.3
 * Node.js 0.10.21
