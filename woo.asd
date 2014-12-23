@@ -12,10 +12,14 @@
   (:use :cl :asdf))
 (in-package :woo-asd)
 
+#+quicklisp (ql:quickload :cffi-grovel)
+#-quicklisp (asdf:load-system :cffi-grovel)
+
 (defsystem woo
   :version "0.0.1"
   :author "Eitaro Fukamachi"
   :license "MIT"
+  :defsystem-depends-on (:cffi-grovel)
   :depends-on (:ev
                :iolib/syscalls
                :iolib/sockets
@@ -44,6 +48,7 @@
                    (:file "tcp" :depends-on ("event-loop" "socket" "syscall" "util"))
                    (:file "condition")
                    (:file "syscall")
+                   (cffi-grovel:grovel-file "socket-grovel" :depends-on ("syscall"))
                    (:file "util"))))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description

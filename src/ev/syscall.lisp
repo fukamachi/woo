@@ -11,13 +11,18 @@
            :write
            :read
            :accept
+           #+linux accept4
            :set-fd-nonblock
            :EWOULDBLOCK
            :EINTR
            :EPROTO
            :ECONNABORTED
            :ECONNREFUSED
-           :ECONNRESET))
+           :ECONNRESET
+
+           ;; from sys/socket.h
+           :SOCK-CLOEXEC
+           :SOCK-NONBLOCK))
 (in-package :woo.ev.syscall)
 
 (defcfun ("close") :int
@@ -69,3 +74,10 @@
   (socket :int)
   (address :pointer)
   (addrlen :pointer))
+
+#+linux
+(defcfun ("accept4") :int
+  (socket :int)
+  (address :pointer)
+  (addrlen :pointer)
+  (flags :int))

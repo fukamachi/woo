@@ -17,6 +17,8 @@
                 :socket-last-activity)
   (:import-from :woo.ev.syscall
                 :set-fd-nonblock
+                #-linux :accept
+                #+linux :accept4
                 #+nil :close
                 #+nil :read
                 :EWOULDBLOCK
@@ -24,7 +26,9 @@
                 :ECONNREFUSED
                 :ECONNRESET
                 :EPROTO
-                :EINTR)
+                :EINTR
+                :SOCK-CLOEXEC
+                :SOCK-NONBLOCK)
   (:import-from :woo.ev.util
                 :define-c-callback
                 :io-fd)
@@ -116,7 +120,8 @@
   (declare (ignore events))
   (with-sockaddr-storage-and-socklen (sockaddr size)
     (let* ((fd (io-fd listener))
-           (client-fd (wsys:accept fd sockaddr size)))
+           (client-fd #+linux (wsys:accept4 fd sockaddr size (logxor wsys:SOCK-CLOEXEC wsys:SOCK-NONBLOCK))
+                      #-linux (wsys:accept fd sockaddr size)))
       (case client-fd
         (-1 (let ((errno (isys:errno)))
               (cond
