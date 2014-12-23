@@ -132,6 +132,8 @@
                 (t
                  (error "Can't accept connection (Code: ~D)" errno)))))
         (otherwise
+         #-linux (set-fd-nonblock client-fd t)
+
          ;; In case the client disappeared before closing the socket,
          ;; a socket object remains in the data registry.
          ;; I need to check if OS is gonna reuse the file descriptor.
