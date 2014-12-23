@@ -59,13 +59,16 @@
 (defconstant ECONNRESET 54.)
 
 (defun set-fd-nonblock (fd enabled)
+  (declare (optimize (speed 3) (safety 0)))
   (let ((current-flags (%fcntl/noarg fd F-GETFL)))
+    (declare (type fixnum current-flags))
     (if (< current-flags 0)
         -1
         (let ((new-flags
                 (if enabled
                     (logxor current-flags O-NONBLOCK)
                     (logand current-flags (lognot O-NONBLOCK)))))
+          (declare (type fixnum new-flags))
           (if (= new-flags current-flags)
               (%fcntl/int fd F-SETFL new-flags)
               0)))))
