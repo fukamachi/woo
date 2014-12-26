@@ -61,7 +61,7 @@
 
 (cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
-  (lev:ev-break evloop lev:EVBREAK-ALL)
+  (lev:ev-break evloop lev:+EVBREAK-ALL+)
   #+sbcl
   (sb-ext:exit)
   #-sbcl

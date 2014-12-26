@@ -3,7 +3,8 @@
   (:use :cl)
   (:import-from :lev
                 :ev-loop-new
-                :ev-run)
+                :ev-run
+                :+EVFLAG-FORKCHECK+)
   (:import-from :cffi
                 :foreign-free)
   (:import-from :static-vectors
@@ -57,7 +58,7 @@
 
 (defmacro with-event-loop ((&key enable-fork) &body body)
   `(let ((*evloop* (lev:ev-loop-new (if ,enable-fork
-                                        lev:EVFLAG-FORKCHECK
+                                        lev:+EVFLAG-FORKCHECK+
                                         0)))
          (*callbacks* (make-hash-table :test 'eql))
          (*data-registry* (make-hash-table :test 'eql))

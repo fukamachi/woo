@@ -28,7 +28,8 @@
                 :ev-io-stop
                 :ev-timer
                 :ev-timer-stop
-                :EV-WRITE)
+                :+EV-READ+
+                :+EV-WRITE+)
   (:import-from :fast-io
                 :make-output-buffer
                 :fast-write-sequence
@@ -81,7 +82,7 @@
     (lev:ev-io-init (socket-read-watcher socket)
                     tcp-read-cb
                     fd
-                    lev:EV-READ)
+                    lev:+EV-READ+)
     socket))
 
 (declaim (inline socket-read-watcher socket-write-watcher socket-timeout-timer))
@@ -207,7 +208,7 @@
   (setf (socket-write-cb socket) write-cb)
   (let ((io (socket-write-watcher socket))
         (fd (socket-fd socket)))
-    (lev:ev-io-init io 'async-write-cb fd lev:EV-WRITE)
+    (lev:ev-io-init io 'async-write-cb fd lev:+EV-WRITE+)
     (lev:ev-io-start *evloop* io)
     t))
 

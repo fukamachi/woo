@@ -41,8 +41,8 @@
                 :ev-timer
                 :ev-timer-init
                 :ev-timer-again
-                :EV-READ
-                :EV-TIMER)
+                :+EV-READ+
+                :+EV-TIMER+)
   (:import-from :iolib.sockets
                 #+nil :make-socket
                 :make-address
@@ -152,8 +152,8 @@
            (lev:ev-io-start evloop (socket-read-watcher socket))
            (let ((timer (socket-timeout-timer socket)))
              (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
-             (setf (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::data) (socket-read-watcher socket))
-             (timeout-cb evloop timer lev:EV-TIMER))))))))
+             (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
+             (timeout-cb evloop timer lev:+EV-TIMER+))))))))
 
 (defun listen-on (address port &key (backlog *default-backlog-size*))
   (let ((address (sockets:make-address
@@ -177,8 +177,8 @@
   (let ((fd (if fd
                 (listen-on-fd fd :backlog backlog)
                 (listen-on address port :backlog backlog)))
-        (listener (cffi:foreign-alloc 'lev:ev-io)))
-    (lev:ev-io-init listener 'tcp-accept-cb fd lev:EV-READ)
+        (listener (cffi:foreign-alloc '(:struct lev:ev-io))))
+    (lev:ev-io-init listener 'tcp-accept-cb fd lev:+EV-READ+)
     listener))
 
 (defun tcp-server (address port read-cb &key connect-cb (backlog *default-backlog-size*) fd)
