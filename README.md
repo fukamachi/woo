@@ -45,7 +45,6 @@ This library is still under development and considered ALPHA quality.
 ## Requirements
 
 * UNIX (GNU Linux, Mac, *BSD)
-* [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
 * [libev](http://libev.schmorp.de)
 
 ## Benchmarks

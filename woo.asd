@@ -45,7 +45,7 @@
                   :components
                   ((:file "event-loop")
                    (:file "socket" :depends-on ("event-loop" "util"))
-                   (:file "tcp" :depends-on ("event-loop" "socket" "util"))
+                   (:file "tcp" :depends-on ("event-loop" "socket" "util" "condition"))
                    (:file "condition")
                    (:file "util")))
                  (:module "llsocket"

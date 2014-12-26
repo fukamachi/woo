@@ -58,4 +58,10 @@
 (defun bzero (buffer count)
   (memset buffer 0 count))
 
-(defcfun (errno "errno") :int)
+;; errno(3) is not a C function in some environments (ex. Mac).
+;; libfixposix can be a workaround for it, but I don't like to add a dependency on it
+;; just for it.
+(defun errno ()
+  #+sbcl (sb-impl::get-errno)
+  #+ccl (ccl::%get-errno)
+  #-(or sbcl ccl) nil)
