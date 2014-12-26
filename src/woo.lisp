@@ -65,7 +65,7 @@
   #+sbcl
   (sb-ext:exit)
   #-sbcl
-  (cl-user:quit))
+  (cl-user::quit))
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
                   worker-num)
