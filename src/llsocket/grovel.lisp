@@ -99,10 +99,6 @@
   (port "sin_port" :type in-port-t)
   (addr "sin_addr" :type in-addr-t))
 
-(cstruct sockproto "struct sockproto"
-  (family "sp_family" :type sa-family-t)
-  (protocol "sp_protocol" :type :pointer))
-
 ;; Message headers
 (constant (+MSG-OOB+ "MSG_OOB"))
 (constant (+MSG-PEEK+ "MSG_PEEK"))

@@ -63,7 +63,6 @@
            :sockaddr
            :sockaddr-in
            :sockaddr-storage
-           :sockproto
 
            :+MSG-OOB+
            :+MSG-PEEK+
