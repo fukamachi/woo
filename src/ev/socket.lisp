@@ -63,9 +63,9 @@
 (defstruct (socket (:constructor %make-socket))
   (watchers (make-array 3
                         :element-type 'cffi:foreign-pointer
-                        :initial-contents (list (cffi:foreign-alloc 'lev:ev-io)
-                                                (cffi:foreign-alloc 'lev:ev-io)
-                                                (cffi:foreign-alloc 'lev:ev-timer)))
+                        :initial-contents (list (cffi:foreign-alloc '(:struct lev:ev-io))
+                                                (cffi:foreign-alloc '(:struct lev:ev-io))
+                                                (cffi:foreign-alloc '(:struct lev:ev-timer))))
    :type (simple-array cffi:foreign-pointer (3)))
   (last-activity (lev:ev-now *evloop*) :type double-float)
   (fd nil :type fixnum)

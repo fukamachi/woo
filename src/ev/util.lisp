@@ -13,7 +13,7 @@
 
 (declaim (inline io-fd))
 (defun io-fd (io)
-  (cffi:foreign-slot-value io 'lev:ev-io 'lev::fd))
+  (cffi:foreign-slot-value io '(:struct lev:ev-io) 'lev::fd))
 
 ;; Copied from cl-async-util
 ;; Copyright (c) 2012 Lyon Bros. Enterprises, LLC

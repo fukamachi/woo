@@ -76,7 +76,7 @@
         (*debug* debug))
     (flet ((start-server-multi ()
              (let (listener
-                   (signal-watcher (cffi:foreign-alloc 'lev:ev-signal)))
+                   (signal-watcher (cffi:foreign-alloc '(:struct lev:ev-signal))))
                (unwind-protect (wev:with-event-loop (:enable-fork t)
                                  (setq listener
                                        (wev:tcp-server address port

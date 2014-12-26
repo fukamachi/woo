@@ -103,7 +103,7 @@
 (define-c-callback timeout-cb :void ((evloop :pointer) (timer :pointer) (events :int))
   (declare (ignore events))
   (let* ((now (lev:ev-now evloop))
-         (fd (io-fd (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::data)))
+         (fd (io-fd (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data)))
          (socket (deref-data-from-pointer fd))
          (timeout (+ (socket-last-activity socket) *connection-timeout*)))
     (declare (type double-float now timeout))
@@ -112,7 +112,7 @@
           (vom:info "Timeout, closing connection")
           (close-socket socket))
         (progn
-          (setf (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::repeat)
+          (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::repeat)
                 (- timeout now))
           (lev:ev-timer-again evloop timer)))))
 
