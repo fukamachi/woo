@@ -20,15 +20,15 @@
                 :%shutdown
                 :shut-rdwr
                 :socket-not-connected-error)
-  (:import-from :ev
-                :ev_now
-                :ev_io
-                :ev_io_init
-                :ev_io_start
-                :ev_io_stop
-                :ev_timer
-                :ev_timer_stop
-                :EV_WRITE)
+  (:import-from :lev
+                :ev-now
+                :ev-io
+                :ev-io-init
+                :ev-io-start
+                :ev-io-stop
+                :ev-timer
+                :ev-timer-stop
+                :EV-WRITE)
   (:import-from :fast-io
                 :make-output-buffer
                 :fast-write-sequence
@@ -62,11 +62,11 @@
 (defstruct (socket (:constructor %make-socket))
   (watchers (make-array 3
                         :element-type 'cffi:foreign-pointer
-                        :initial-contents (list (cffi:foreign-alloc 'ev::ev_io)
-                                                (cffi:foreign-alloc 'ev::ev_io)
-                                                (cffi:foreign-alloc 'ev::ev_timer)))
+                        :initial-contents (list (cffi:foreign-alloc 'lev:ev-io)
+                                                (cffi:foreign-alloc 'lev:ev-io)
+                                                (cffi:foreign-alloc 'lev:ev-timer)))
    :type (simple-array cffi:foreign-pointer (3)))
-  (last-activity (ev::ev_now *evloop*) :type double-float)
+  (last-activity (lev:ev-now *evloop*) :type double-float)
   (fd nil :type fixnum)
   data
   (tcp-read-cb nil :type symbol)
@@ -78,10 +78,10 @@
 
 (defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
   (let ((socket (apply #'%make-socket initargs)))
-    (ev::ev_io_init (socket-read-watcher socket)
+    (lev:ev-io-init (socket-read-watcher socket)
                     tcp-read-cb
                     fd
-                    ev:EV_READ)
+                    lev:EV-READ)
     socket))
 
 (declaim (inline socket-read-watcher socket-write-watcher socket-timeout-timer))
@@ -99,9 +99,9 @@
   (let ((read-watcher (socket-read-watcher socket))
         (write-watcher (socket-write-watcher socket))
         (timeout-timer (socket-timeout-timer socket)))
-    (ev::ev_io_stop *evloop* read-watcher)
-    (ev::ev_io_stop *evloop* write-watcher)
-    (ev::ev_timer_stop *evloop* timeout-timer)
+    (lev:ev-io-stop *evloop* read-watcher)
+    (lev:ev-io-stop *evloop* write-watcher)
+    (lev:ev-timer-stop *evloop* timeout-timer)
     (cffi:foreign-free read-watcher)
     (cffi:foreign-free write-watcher)
     (cffi:foreign-free timeout-timer)))
@@ -177,7 +177,7 @@
                      (t
                       (error "Unexpected error (Code: ~D)" errno))))))
               (otherwise
-               (setf (socket-last-activity socket) (ev::ev_now *evloop*))
+               (setf (socket-last-activity socket) (lev:ev-now *evloop*))
                (incf nwrote n)
                (if (= nwrote len)
                    (return)
@@ -195,20 +195,20 @@
   (let* ((fd (io-fd io))
          (socket (deref-data-from-pointer fd)))
     (unless socket
-      (ev::ev_io_stop evloop io)
+      (lev:ev-io-stop evloop io)
       (cffi:foreign-free io)
       (return-from async-write-cb))
 
     (let ((completedp (flush-buffer socket)))
       (when completedp
-        (ev::ev_io_stop evloop io)))))
+        (lev:ev-io-stop evloop io)))))
 
 (defun init-write-io (socket &key write-cb)
   (setf (socket-write-cb socket) write-cb)
   (let ((io (socket-write-watcher socket))
         (fd (socket-fd socket)))
-    (ev::ev_io_init io 'async-write-cb fd ev:EV_WRITE)
-    (ev::ev_io_start *evloop* io)
+    (lev:ev-io-init io 'async-write-cb fd lev:EV-WRITE)
+    (lev:ev-io-start *evloop* io)
     t))
 
 (defmacro with-async-writing ((socket &key write-cb) &body body)

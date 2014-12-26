@@ -32,17 +32,17 @@
   (:import-from :woo.ev.util
                 :define-c-callback
                 :io-fd)
-  (:import-from :ev
-                :ev_io
-                :ev_now
-                :ev_io_init
-                :ev_io_start
-                :ev_io_stop
-                :ev_timer
-                :ev_timer_init
-                :ev_timer_again
-                :EV_READ
-                :EV_TIMEOUT)
+  (:import-from :lev
+                :ev-io
+                :ev-now
+                :ev-io-init
+                :ev-io-start
+                :ev-io-stop
+                :ev-timer
+                :ev-timer-init
+                :ev-timer-again
+                :EV-READ
+                :EV-TIMER)
   (:import-from :iolib.sockets
                 #+nil :make-socket
                 :make-address
@@ -90,11 +90,11 @@
            (return))
           (0
            ;; EOF
-           (setf (socket-last-activity socket) (ev::ev_now *evloop*))
+           (setf (socket-last-activity socket) (lev:ev-now *evloop*))
            (close-socket socket)
            (return))
           (otherwise
-           (setf (socket-last-activity socket) (ev::ev_now *evloop*))
+           (setf (socket-last-activity socket) (lev:ev-now *evloop*))
            (when read-cb
              (funcall (the function read-cb) socket *input-buffer* :start 0 :end n))
            (unless (= n buffer-len)
@@ -102,8 +102,8 @@
 
 (define-c-callback timeout-cb :void ((evloop :pointer) (timer :pointer) (events :int))
   (declare (ignore events))
-  (let* ((now (ev::ev_now evloop))
-         (fd (io-fd (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::data)))
+  (let* ((now (lev:ev-now evloop))
+         (fd (io-fd (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::data)))
          (socket (deref-data-from-pointer fd))
          (timeout (+ (socket-last-activity socket) *connection-timeout*)))
     (declare (type double-float now timeout))
@@ -112,9 +112,9 @@
           (vom:info "Timeout, closing connection")
           (close-socket socket))
         (progn
-          (setf (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::repeat)
+          (setf (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::repeat)
                 (- timeout now))
-          (ev::ev_timer_again evloop timer)))))
+          (lev:ev-timer-again evloop timer)))))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
@@ -149,11 +149,11 @@
                (funcall (the function connect-cb) socket))
              (when read-cb
                (setf (socket-read-cb socket) read-cb)))
-           (ev::ev_io_start evloop (socket-read-watcher socket))
+           (lev:ev-io-start evloop (socket-read-watcher socket))
            (let ((timer (socket-timeout-timer socket)))
-             (ev::ev_timer_init timer 'timeout-cb *connection-timeout* 0.0d0)
-             (setf (cffi:foreign-slot-value timer 'ev::ev_timer 'ev::data) (socket-read-watcher socket))
-             (timeout-cb evloop timer ev::EV_TIMEOUT))))))))
+             (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
+             (setf (cffi:foreign-slot-value timer 'lev:ev-timer 'lev::data) (socket-read-watcher socket))
+             (timeout-cb evloop timer lev:EV-TIMER))))))))
 
 (defun listen-on (address port &key (backlog *default-backlog-size*))
   (let ((address (sockets:make-address
@@ -177,14 +177,14 @@
   (let ((fd (if fd
                 (listen-on-fd fd :backlog backlog)
                 (listen-on address port :backlog backlog)))
-        (listener (cffi:foreign-alloc 'ev::ev_io)))
-    (ev::ev_io_init listener 'tcp-accept-cb fd ev:EV_READ)
+        (listener (cffi:foreign-alloc 'lev:ev-io)))
+    (lev:ev-io-init listener 'tcp-accept-cb fd lev:EV-READ)
     listener))
 
 (defun tcp-server (address port read-cb &key connect-cb (backlog *default-backlog-size*) fd)
   (check-event-loop-running)
   (let ((listener (make-listener address port :backlog backlog :fd fd)))
-    (ev::ev_io_start *evloop* listener)
+    (lev:ev-io-start *evloop* listener)
     (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
     listener))
 

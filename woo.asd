@@ -20,7 +20,7 @@
   :author "Eitaro Fukamachi"
   :license "MIT"
   :defsystem-depends-on (:cffi-grovel)
-  :depends-on (:ev
+  :depends-on (:lev
                :iolib/syscalls
                :iolib/sockets
                :cffi

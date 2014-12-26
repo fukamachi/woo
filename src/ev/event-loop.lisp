@@ -1,9 +1,9 @@
 (in-package :cl-user)
 (defpackage woo.ev.event-loop
   (:use :cl)
-  (:import-from :ev
-                :ev_loop_new
-                :ev_run)
+  (:import-from :lev
+                :ev-loop-new
+                :ev-run)
   (:import-from :cffi
                 :foreign-free)
   (:import-from :static-vectors
@@ -56,15 +56,15 @@
     (remhash pointer (the hash-table *data-registry*))))
 
 (defmacro with-event-loop ((&key enable-fork) &body body)
-  `(let ((*evloop* (ev::ev_loop_new (if ,enable-fork
-                                        ev::EVFLAG_FORKCHECK
+  `(let ((*evloop* (lev:ev-loop-new (if ,enable-fork
+                                        lev:EVFLAG-FORKCHECK
                                         0)))
          (*callbacks* (make-hash-table :test 'eql))
          (*data-registry* (make-hash-table :test 'eql))
          (*input-buffer* (make-static-vector *buffer-size*)))
      (unwind-protect (progn
                        ,@body
-                       (ev::ev_run *evloop* 0))
+                       (lev:ev-run *evloop* 0))
        (let ((close-socket-fn (intern #.(string :close-socket) (find-package #.(string :woo.ev.socket)))))
          (maphash (lambda (fd socket)
                     (declare (ignore fd))

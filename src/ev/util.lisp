@@ -1,8 +1,8 @@
 (in-package :cl-user)
 (defpackage woo.ev.util
   (:use :cl)
-  (:import-from :ev
-                :ev_io
+  (:import-from :lev
+                :ev-io
                 :fd)
   (:import-from :cffi
                 :defcallback
@@ -13,7 +13,7 @@
 
 (declaim (inline io-fd))
 (defun io-fd (io)
-  (cffi:foreign-slot-value io 'ev::ev_io 'ev::fd))
+  (cffi:foreign-slot-value io 'lev:ev-io 'lev::fd))
 
 ;; Copied from cl-async-util
 ;; Copyright (c) 2012 Lyon Bros. Enterprises, LLC

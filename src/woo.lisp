@@ -14,8 +14,8 @@
                 :*buffer-size*
                 :*connection-timeout*
                 :*evloop*)
-  (:import-from :ev
-                :ev_loop_fork)
+  (:import-from :lev
+                :ev-loop-fork)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -61,7 +61,7 @@
 
 (cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
-  (ev::ev_break evloop ev::EVBREAK_ALL)
+  (lev:ev-break evloop lev:EVBREAK-ALL)
   #+sbcl
   (sb-ext:exit)
   #-sbcl
@@ -76,7 +76,7 @@
         (*debug* debug))
     (flet ((start-server-multi ()
              (let (listener
-                   (signal-watcher (cffi:foreign-alloc 'ev::ev_signal)))
+                   (signal-watcher (cffi:foreign-alloc 'lev:ev-signal)))
                (unwind-protect (wev:with-event-loop (:enable-fork t)
                                  (setq listener
                                        (wev:tcp-server address port
@@ -84,8 +84,8 @@
                                                        :connect-cb #'connect-cb
                                                        :backlog backlog
                                                        :fd fd))
-                                 (wev:ev_signal_init signal-watcher 'sigint-cb isys:sigint)
-                                 (ev::ev_signal_start *evloop* signal-watcher)
+                                 (lev:ev-signal-init signal-watcher 'sigint-cb isys:sigint)
+                                 (lev:ev-signal-start *evloop* signal-watcher)
                                  (let ((times worker-num))
                                    (tagbody forking
                                       (let ((pid #+sbcl (sb-posix:fork)
@@ -94,7 +94,7 @@
                                             (unless (zerop (decf times))
                                               (go forking))
                                             (progn
-                                              (ev::ev_loop_fork wev:*evloop*)
+                                              (lev:ev-loop-fork wev:*evloop*)
                                               (format t "Worker started: ~A~%" pid)))))))
                  (wev:close-tcp-server listener)
                  (cffi:foreign-free signal-watcher))))

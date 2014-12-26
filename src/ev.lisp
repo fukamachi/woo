@@ -38,16 +38,5 @@
 
            ;; conditions
            :tcp-error
-           :socket-closed
-
-           ;; Extensions to ev
-           :ev_signal_set
-           :ev_signal_init))
+           :socket-closed))
 (in-package :woo.ev)
-
-(defun ev_signal_set (ev signum)
-  (setf (cffi:foreign-slot-value ev 'ev::ev_signal 'ev::signum) signum))
-
-(defun ev_signal_init (ev cb signum)
-  (ev::ev_init ev cb)
-  (ev_signal_set ev signum))
