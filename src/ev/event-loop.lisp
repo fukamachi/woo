@@ -57,9 +57,9 @@
     (remhash pointer (the hash-table *data-registry*))))
 
 (defmacro with-event-loop ((&key enable-fork) &body body)
-  `(let ((*evloop* (lev:ev-default-loop (if ,enable-fork
-                                            lev:+EVFLAG-FORKCHECK+
-                                            0)))
+  `(let ((*evloop* (lev:ev-loop-new (if ,enable-fork
+                                        lev:+EVFLAG-FORKCHECK+
+                                        0)))
          (*callbacks* (make-hash-table :test 'eql))
          (*data-registry* (make-hash-table :test 'eql))
          (*input-buffer* (make-static-vector *buffer-size*)))
@@ -71,7 +71,8 @@
                     (declare (ignore fd))
                     (funcall close-socket-fn socket))
                   *data-registry*))
-       (free-static-vector *input-buffer*))))
+       (free-static-vector *input-buffer*)
+       (cffi:foreign-free *evloop*))))
 
 (defun check-event-loop-running ()
   (unless *evloop*
