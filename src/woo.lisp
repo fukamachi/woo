@@ -35,8 +35,6 @@
                 :finish-output-buffer
                 :with-fast-output
                 :fast-write-byte)
-  (:import-from :iolib.sockets
-                :+max-backlog-size+)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes
                 :utf-8-bytes-to-string
@@ -57,7 +55,7 @@
 (defvar *app* nil)
 (defvar *debug* nil)
 
-(defvar *default-backlog-size* +max-backlog-size+)
+(defvar *default-backlog-size* 128)
 
 (cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
@@ -71,7 +69,7 @@
                   worker-num)
   (assert (and (integerp backlog)
                (plusp backlog)
-               (<= backlog +max-backlog-size+)))
+               (<= backlog 128)))
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server-multi ()
@@ -84,12 +82,12 @@
                                                        :connect-cb #'connect-cb
                                                        :backlog backlog
                                                        :fd fd))
-                                 (lev:ev-signal-init signal-watcher 'sigint-cb isys:sigint)
+                                 (lev:ev-signal-init signal-watcher 'sigint-cb 2) ;; SIGINT
                                  (lev:ev-signal-start *evloop* signal-watcher)
                                  (let ((times worker-num))
                                    (tagbody forking
                                       (let ((pid #+sbcl (sb-posix:fork)
-                                                 #-sbcl (isys:fork)))
+                                                 #-sbcl (wsys:fork)))
                                         (if (zerop pid)
                                             (unless (zerop (decf times))
                                               (go forking))

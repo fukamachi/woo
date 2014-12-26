@@ -8,18 +8,18 @@
   (:import-from :woo.ev.util
                 :io-fd
                 :define-c-callback)
-  (:import-from :woo.ev.syscall
+  (:import-from :woo.syscall
                 #+nil :close
                 #+nil :write
+                :errno
                 :EWOULDBLOCK
                 :EINTR
                 :ECONNABORTED
                 :ECONNREFUSED
                 :ECONNRESET)
-  (:import-from :iolib.sockets
-                :%shutdown
-                :shut-rdwr
-                :socket-not-connected-error)
+  (:import-from :woo.llsocket
+                :shutdown
+                :+SHUT-RDWR+)
   (:import-from :lev
                 :ev-now
                 :ev-io
@@ -39,8 +39,6 @@
                 :with-pointer-to-vector-data
                 :incf-pointer
                 :foreign-free)
-  (:import-from :alexandria
-                :ignore-some-conditions)
   (:export :socket
            :make-socket
            :socket-read-watcher
@@ -110,8 +108,7 @@
 (defun close-socket (socket)
   (free-watchers socket)
   (let ((fd (socket-fd socket)))
-    (ignore-some-conditions (socket-not-connected-error)
-      (sockets::%shutdown fd sockets::shut-rdwr))
+    (wsock:shutdown fd wsock:+SHUT-RDWR+)
     (remove-pointer-from-registry fd))
   (setf (socket-open-p socket) nil
         (socket-read-cb socket) nil
@@ -163,7 +160,7 @@
             (declare (dynamic-extent n))
             (case n
               (-1
-               (let ((errno (isys:errno)))
+               (let ((errno (wsys:errno)))
                  (return-from flush-buffer
                    (cond
                      ((or (= errno wsys:EWOULDBLOCK)
