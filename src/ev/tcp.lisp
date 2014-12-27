@@ -15,6 +15,8 @@
                 :socket-read-watcher
                 :socket-timeout-timer
                 :socket-last-activity)
+  (:import-from :woo.ev.condition
+                :os-error)
   (:import-from :woo.syscall
                 :set-fd-nonblock
                 #+nil :close
@@ -195,12 +197,25 @@
             wsock::addr (htonl (vector-to-integer (address-to-vector address)))
             wsock::port (htons (or port 0))))
     (let ((fd (wsock:socket wsock:+AF-INET+ wsock:+SOCK-STREAM+ 0)))
-      ;; TODO: check if fd is -1
-      (wsys:set-fd-nonblock fd t)
+      (when (= fd -1)
+        (error 'os-error
+               :description "Cannot create listening socket"
+               :code (wsys:errno)))
+      (let ((res (wsys:set-fd-nonblock fd t)))
+        (when (= res -1)
+          (error 'os-error
+                 :description "Cannot set fd nonblock"
+                 :code (wsys:errno))))
       (cffi:with-foreign-object (on :int)
         (setf (cffi:mem-aref on :int) 1)
-        (wsock:setsockopt fd wsock:+SOL-SOCKET+ wsock:+SO-REUSEADDR+ on (cffi:foreign-type-size :int)))
-      (wsock:bind fd sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+        (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ wsock:+SO-REUSEADDR+ on (cffi:foreign-type-size :int)) -1)
+          (error 'os-error
+                 :description "Cannot set socket option"
+                 :code (wsys:errno))))
+      (when (= (wsock:bind fd sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in))) -1)
+        (error 'os-error
+               :description (format nil "Cannot bind fd to the address ~S" address)
+               :code (wsys:errno)))
       (wsock:listen fd backlog)
       fd)))
 
