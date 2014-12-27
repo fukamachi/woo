@@ -6,6 +6,12 @@ Woo is a fast non-blocking HTTP server built on top of [libev](http://software.s
 
 This library is still under development and considered ALPHA quality.
 
+## How fast?
+
+![Benchmark graph](images/benchmark.png)
+
+See [Benchmarks](#benchmarks) for the detail.
+
 ## Usage
 
 ### Start a server
