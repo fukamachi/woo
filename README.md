@@ -42,12 +42,6 @@ This library is still under development and considered ALPHA quality.
   :worker-num 4)
 ```
 
-## Requirements
-
-* UNIX (GNU Linux, Mac, *BSD)
-* [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
-* [libev](http://libev.schmorp.de)
-
 ## Benchmarks
 
 Comparison of the server performance to return "Hello, World" for every requests. Here's the results of requests/sec scores.
@@ -415,6 +409,32 @@ Running 10s test @ http://127.0.0.1:5000
   583243 requests in 10.00s, 71.75MB read
 Requests/sec:  58336.29
 Transfer/sec:      7.18MB
+```
+
+## Installation
+
+Woo has switched the backend from cl-async to libev after the latest Quicklisp dist release. If you're gonna run the benchmarks by your own, please use the latest one.
+
+### Requirements
+
+* UNIX (GNU Linux, Mac, *BSD)
+* SBCL 1.2.6
+* Quicklisp
+* [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
+* [libev](http://libev.schmorp.de)
+
+### Cloning
+
+```
+$ cd ~/common-lisp
+$ git clone https://github.com/fukamachi/lev
+$ git clone https://github.com/fukamachi/woo
+```
+
+### Loading
+
+```
+(ql:quickload :woo)
 ```
 
 ## TODO
