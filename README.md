@@ -328,6 +328,39 @@ Requests/sec:  15243.51
 Transfer/sec:      2.43MB
 ```
 
+### Passenger 5 (Ruby)
+
+```
+$ gem install passenger --pre
+$ passenger start -e production -R benchmark/unicorn/app.ru --max-pool-size 4 --min-instances 4 # I suppose we test 4 cpu
+```
+
+```
+$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:3000
+Running 10s test @ http://127.0.0.1:3000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    83.73us  271.40us  13.21ms   98.23%
+    Req/Sec    23.02k     3.20k   40.89k    82.77%
+  869343 requests in 10.00s, 131.82MB read
+Requests/sec:  86941.66
+Transfer/sec:     13.18MB
+```
+
+```
+$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:3000
+Running 10s test @ http://127.0.0.1:3000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   275.91us    0.96ms  18.12ms   98.03%
+    Req/Sec    30.24k    14.41k   91.56k    65.31%
+  1140443 requests in 10.00s, 172.93MB read
+  Socket errors: connect 0, read 0, write 0, timeout 192
+Requests/sec: 114052.41
+Transfer/sec:     17.29MB
+```
+
+
 ### Node.js http module (4 cluster)
 
 ```
