@@ -21,7 +21,8 @@
   :license "MIT"
   :defsystem-depends-on (:cffi-grovel)
   :depends-on (:lev
-               :swap-bytes
+               :iolib/syscalls
+               :iolib/sockets
                :cffi
                :static-vectors
                :fast-http
@@ -41,26 +42,14 @@
                  (:file "ev" :depends-on ("ev-packages"))
                  (:module "ev-packages"
                   :pathname "ev"
-                  :depends-on ("syscall" "llsocket")
                   :components
                   ((:file "event-loop")
-                   (:file "socket" :depends-on ("event-loop" "util"))
-                   (:file "tcp" :depends-on ("event-loop" "socket" "util"))
+                   (:file "socket" :depends-on ("event-loop" "syscall" "util"))
+                   (:file "tcp" :depends-on ("event-loop" "socket" "syscall" "util"))
                    (:file "condition")
-                   (:file "util")))
-                 (:module "llsocket"
-                  :depends-on ("syscall")
-                  :serial t
-                  :components
-                  ((:file "package")
-                   (cffi-grovel:grovel-file "grovel")
-                   (:file "cffi")))
-                 (:module "syscall"
-                  :serial t
-                  :components
-                  ((:file "package")
-                   (cffi-grovel:grovel-file "types")
-                   (:file "main"))))))
+                   (:file "syscall")
+                   (cffi-grovel:grovel-file "socket-grovel" :depends-on ("syscall"))
+                   (:file "util"))))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
   #.(with-open-file (stream (merge-pathnames

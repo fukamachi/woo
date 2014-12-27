@@ -1,4 +1,29 @@
-(in-package :woo.syscall)
+(in-package :cl-user)
+(defpackage woo.ev.syscall
+  (:nicknames :wsys)
+  (:use :cl)
+  (:shadow :close
+           :write
+           :read)
+  (:import-from :cffi
+                :defcfun)
+  (:export :close
+           :write
+           :read
+           :accept
+           #+linux accept4
+           :set-fd-nonblock
+           :EWOULDBLOCK
+           :EINTR
+           :EPROTO
+           :ECONNABORTED
+           :ECONNREFUSED
+           :ECONNRESET
+
+           ;; from sys/socket.h
+           :SOCK-CLOEXEC
+           :SOCK-NONBLOCK))
+(in-package :woo.ev.syscall)
 
 (defcfun ("close") :int
   (fd :int))
@@ -48,14 +73,14 @@
               (%fcntl/int fd F-SETFL new-flags)
               0)))))
 
-(defcfun (fork "fork") pid-t)
+(defcfun ("accept") :int
+  (socket :int)
+  (address :pointer)
+  (addrlen :pointer))
 
-(defcfun (memset "memset") :pointer
-  (buffer :pointer)
-  (value :int)
-  (count size-t))
-
-(defun bzero (buffer count)
-  (memset buffer 0 count))
-
-(defcfun (errno "errno") :int)
+#+linux
+(defcfun ("accept4") :int
+  (socket :int)
+  (address :pointer)
+  (addrlen :pointer)
+  (flags :int))
