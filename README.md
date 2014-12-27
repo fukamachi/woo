@@ -73,7 +73,9 @@ The benchmarking environment is:
 * PyPy 2.4.0
 * Go 1.3.3
 * Tornado 4.0.2
+* Ruby 2.1.1p76
 * Unicorn 4.8.3
+* Phusion Passenger 5.0.0.beta2
 * Node.js 0.10.21
 * Quicklisp 2014-11-06
 * libevent 2.1.4-alpha (HEAD)
@@ -415,6 +417,37 @@ Running 10s test @ http://127.0.0.1:5000
   583243 requests in 10.00s, 71.75MB read
 Requests/sec:  58336.29
 Transfer/sec:      7.18MB
+```
+
+### Phusion Passenger (Ruby)
+
+```
+$ passenger start -e production -R benchmark/unicorn/app.ru --max-pool-size 4 --min-instances 4
+```
+
+```
+wrk -c 10 -t 4 -d 10 http://127.0.0.1:3000
+Running 10s test @ http://127.0.0.1:3000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency   177.00us    1.10ms  45.88ms   99.64%
+    Req/Sec    13.87k     3.06k   27.00k    80.29%
+  526936 requests in 10.00s, 79.90MB read
+Requests/sec:  52696.83
+Transfer/sec:      7.99MB
+```
+
+```
+wrk -c 100 -t 4 -d 10 http://127.0.0.1:3000
+Running 10s test @ http://127.0.0.1:3000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.42ms    1.85ms  64.67ms   98.36%
+    Req/Sec    15.60k     3.55k   47.00k    62.83%
+  590815 requests in 10.00s, 89.59MB read
+  Socket errors: connect 0, read 0, write 0, timeout 48
+Requests/sec:  59085.92
+Transfer/sec:      8.96MB
 ```
 
 ## Installation
