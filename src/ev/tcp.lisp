@@ -15,20 +15,34 @@
                 :socket-read-watcher
                 :socket-timeout-timer
                 :socket-last-activity)
-  (:import-from :woo.ev.syscall
+  (:import-from :woo.ev.condition
+                :os-error)
+  (:import-from :woo.syscall
                 :set-fd-nonblock
-                #-linux :accept
-                #+linux :accept4
                 #+nil :close
                 #+nil :read
+                :errno
                 :EWOULDBLOCK
                 :ECONNABORTED
                 :ECONNREFUSED
                 :ECONNRESET
                 :EPROTO
-                :EINTR
-                :SOCK-CLOEXEC
-                :SOCK-NONBLOCK)
+                :EINTR)
+  (:import-from :woo.llsocket
+                #-linux :accept
+                #+linux :accept4
+                :bind
+                #+nil :listen
+                :+SOCK-CLOEXEC+
+                :+SOCK-NONBLOCK+
+                :socket
+                :sockaddr-in
+                :sockaddr-storage
+                :setsockopt
+                :+AF-INET+
+                :+SOCK-STREAM+
+                :+SOL-SOCKET+
+                :+SO-REUSEADDR+)
   (:import-from :woo.ev.util
                 :define-c-callback
                 :io-fd)
@@ -43,18 +57,17 @@
                 :ev-timer-again
                 :+EV-READ+
                 :+EV-TIMER+)
-  (:import-from :iolib.sockets
-                #+nil :make-socket
-                :make-address
-                :bind-address
-                :fd-of
-                :%listen
-                :with-sockaddr-storage-and-socklen
-                :*default-backlog-size*)
+  (:import-from :swap-bytes
+                :htonl
+                :htons)
   (:import-from :cffi
                 :foreign-alloc
                 :foreign-free
-                :foreign-slot-value)
+                :foreign-slot-value
+                :with-foreign-object
+                :with-foreign-slots
+                :mem-aref
+                :foreign-type-size)
   (:import-from :split-sequence
                 :split-sequence)
   (:export :tcp-server
@@ -76,7 +89,7 @@
         (declare (dynamic-extent n))
         (case n
           (-1
-           (let ((errno (isys:errno)))
+           (let ((errno (wsys:errno)))
              (cond
                ((or (= errno wsys:EWOULDBLOCK)
                     (= errno wsys:EINTR)))
@@ -116,61 +129,99 @@
                 (- timeout now))
           (lev:ev-timer-again evloop timer)))))
 
+(defvar *dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-storage)))
+(defvar *dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
+(wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
+(setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
+
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
-  (with-sockaddr-storage-and-socklen (sockaddr size)
-    (let* ((fd (io-fd listener))
-           (client-fd #+linux (wsys:accept4 fd sockaddr size (logxor wsys:SOCK-CLOEXEC wsys:SOCK-NONBLOCK))
-                      #-linux (wsys:accept fd sockaddr size)))
-      (case client-fd
-        (-1 (let ((errno (isys:errno)))
-              (cond
-                ((or (= errno wsys:EWOULDBLOCK)
-                     (= errno wsys:ECONNABORTED)
-                     (= errno wsys:EPROTO)
-                     (= errno wsys:EINTR)))
-                (t
-                 (error "Can't accept connection (Code: ~D)" errno)))))
-        (otherwise
-         #-linux (set-fd-nonblock client-fd t)
+  (let* ((fd (io-fd listener))
+         (client-fd #+linux (wsock:accept4 fd
+                                           *dummy-sockaddr*
+                                           *dummy-socklen*
+                                           (logxor wsock:+SOCK-CLOEXEC+ wsock:+SOCK-NONBLOCK+))
+                    #-linux (wsock:accept fd
+                                          *dummy-sockaddr*
+                                          *dummy-socklen*)))
+    (case client-fd
+      (-1 (let ((errno (wsys:errno)))
+            (cond
+              ((or (= errno wsys:EWOULDBLOCK)
+                   (= errno wsys:ECONNABORTED)
+                   (= errno wsys:EPROTO)
+                   (= errno wsys:EINTR)))
+              (t
+               (error "Can't accept connection (Code: ~D)" errno)))))
+      (otherwise
+       #-linux (set-fd-nonblock client-fd t)
 
-         ;; In case the client disappeared before closing the socket,
-         ;; a socket object remains in the data registry.
-         ;; I need to check if OS is gonna reuse the file descriptor.
-         (let ((existing-socket (deref-data-from-pointer client-fd)))
-           (when existing-socket
-             (free-watchers existing-socket)))
-         (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))
-           (setf (deref-data-from-pointer client-fd) socket)
-           (let* ((callbacks (callbacks fd))
-                  (read-cb (getf callbacks :read-cb))
-                  (connect-cb (getf callbacks :connect-cb)))
-             (when connect-cb
-               (funcall (the function connect-cb) socket))
-             (when read-cb
-               (setf (socket-read-cb socket) read-cb)))
-           (lev:ev-io-start evloop (socket-read-watcher socket))
-           (let ((timer (socket-timeout-timer socket)))
-             (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
-             (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
-             (timeout-cb evloop timer lev:+EV-TIMER+))))))))
+       ;; In case the client disappeared before closing the socket,
+       ;; a socket object remains in the data registry.
+       ;; I need to check if OS is gonna reuse the file descriptor.
+       (let ((existing-socket (deref-data-from-pointer client-fd)))
+         (when existing-socket
+           (free-watchers existing-socket)))
+       (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))
+         (setf (deref-data-from-pointer client-fd) socket)
+         (let* ((callbacks (callbacks fd))
+                (read-cb (getf callbacks :read-cb))
+                (connect-cb (getf callbacks :connect-cb)))
+           (when connect-cb
+             (funcall (the function connect-cb) socket))
+           (when read-cb
+             (setf (socket-read-cb socket) read-cb)))
+         (lev:ev-io-start evloop (socket-read-watcher socket))
+         (let ((timer (socket-timeout-timer socket)))
+           (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
+           (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
+           (timeout-cb evloop timer lev:+EV-TIMER+)))))))
 
-(defun listen-on (address port &key (backlog *default-backlog-size*))
-  (let ((address (sockets:make-address
-                  (map '(simple-array (unsigned-byte 8) (4))
-                       #'read-from-string
-                       (split-sequence #\. address))))
-        (socket (sockets:make-socket :connect :passive
-                                     :address-family :internet
-                                     :ipv6 nil)))
-    (set-fd-nonblock (fd-of socket) t)
-    (bind-address socket address :port port)
-    (%listen (fd-of socket) backlog)
-    (fd-of socket)))
+(defun vector-to-integer (vector)
+  "Convert a vector to a 32-bit unsigned integer."
+  (+ (ash (aref vector 0) 24)
+     (ash (aref vector 1) 16)
+     (ash (aref vector 2) 8)
+     (aref vector 3)))
 
-(defun listen-on-fd (fd &key (backlog *default-backlog-size*))
+(defun address-to-vector (address)
+  (map '(simple-array (unsigned-byte 8) (4))
+       #'read-from-string
+       (split-sequence #\. address)))
+
+(defun listen-on (address port &key (backlog 128))
+  (cffi:with-foreign-object (sin '(:struct wsock:sockaddr-in))
+    (wsys:bzero sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+    (cffi:with-foreign-slots ((wsock::family wsock::addr wsock::port) sin (:struct wsock:sockaddr-in))
+      (setf wsock::family wsock:+AF-INET+
+            wsock::addr (htonl (vector-to-integer (address-to-vector address)))
+            wsock::port (htons (or port 0))))
+    (let ((fd (wsock:socket wsock:+AF-INET+ wsock:+SOCK-STREAM+ 0)))
+      (when (= fd -1)
+        (error 'os-error
+               :description "Cannot create listening socket"
+               :code (wsys:errno)))
+      (let ((res (wsys:set-fd-nonblock fd t)))
+        (when (= res -1)
+          (error 'os-error
+                 :description "Cannot set fd nonblock"
+                 :code (wsys:errno))))
+      (cffi:with-foreign-object (on :int)
+        (setf (cffi:mem-aref on :int) 1)
+        (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ wsock:+SO-REUSEADDR+ on (cffi:foreign-type-size :int)) -1)
+          (error 'os-error
+                 :description "Cannot set socket option"
+                 :code (wsys:errno))))
+      (when (= (wsock:bind fd sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in))) -1)
+        (error 'os-error
+               :description (format nil "Cannot bind fd to the address ~S" address)
+               :code (wsys:errno)))
+      (wsock:listen fd backlog)
+      fd)))
+
+(defun listen-on-fd (fd &key (backlog 128))
   (set-fd-nonblock fd t)
-  (%listen fd backlog)
+  (wsock:listen fd backlog)
   fd)
 
 (defun make-listener (address port &key backlog fd)
@@ -181,7 +232,7 @@
     (lev:ev-io-init listener 'tcp-accept-cb fd lev:+EV-READ+)
     listener))
 
-(defun tcp-server (address port read-cb &key connect-cb (backlog *default-backlog-size*) fd)
+(defun tcp-server (address port read-cb &key connect-cb (backlog 128) fd)
   (check-event-loop-running)
   (let ((listener (make-listener address port :backlog backlog :fd fd)))
     (lev:ev-io-start *evloop* listener)

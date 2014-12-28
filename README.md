@@ -459,7 +459,6 @@ Woo has switched the backend from cl-async to libev after the latest Quicklisp d
 * UNIX (GNU Linux, Mac, *BSD)
 * SBCL 1.2.6
 * Quicklisp
-* [libfixposix](https://github.com/sionescu/libfixposix) (for [IOLib](https://github.com/sionescu/iolib))
 * [libev](http://libev.schmorp.de)
 
 ### Cloning

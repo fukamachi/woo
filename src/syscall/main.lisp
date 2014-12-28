@@ -1,29 +1,4 @@
-(in-package :cl-user)
-(defpackage woo.ev.syscall
-  (:nicknames :wsys)
-  (:use :cl)
-  (:shadow :close
-           :write
-           :read)
-  (:import-from :cffi
-                :defcfun)
-  (:export :close
-           :write
-           :read
-           :accept
-           #+linux accept4
-           :set-fd-nonblock
-           :EWOULDBLOCK
-           :EINTR
-           :EPROTO
-           :ECONNABORTED
-           :ECONNREFUSED
-           :ECONNRESET
-
-           ;; from sys/socket.h
-           :SOCK-CLOEXEC
-           :SOCK-NONBLOCK))
-(in-package :woo.ev.syscall)
+(in-package :woo.syscall)
 
 (defcfun ("close") :int
   (fd :int))
@@ -73,14 +48,20 @@
               (%fcntl/int fd F-SETFL new-flags)
               0)))))
 
-(defcfun ("accept") :int
-  (socket :int)
-  (address :pointer)
-  (addrlen :pointer))
+(defcfun (fork "fork") pid-t)
 
-#+linux
-(defcfun ("accept4") :int
-  (socket :int)
-  (address :pointer)
-  (addrlen :pointer)
-  (flags :int))
+(defcfun (memset "memset") :pointer
+  (buffer :pointer)
+  (value :int)
+  (count size-t))
+
+(defun bzero (buffer count)
+  (memset buffer 0 count))
+
+;; errno(3) is not a C function in some environments (ex. Mac).
+;; libfixposix can be a workaround for it, but I don't like to add a dependency on it
+;; just for it.
+(defun errno ()
+  #+sbcl (sb-impl::get-errno)
+  #+ccl (ccl::%get-errno)
+  #-(or sbcl ccl) nil)
