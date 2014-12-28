@@ -1,6 +1,6 @@
 # Woo
 
-Woo is a fast non-blocking HTTP server built on top of [libev](http://software.schmorp.de/pkg/libev.html). The goal is to be the fastest web server in any language (although written in Common Lisp).
+Woo is a fast non-blocking HTTP server built on top of [libev](http://software.schmorp.de/pkg/libev.html). Although Woo is written in Common Lisp, it aims to be the fastest web server written in any programming language.
 
 ## Warning
 
