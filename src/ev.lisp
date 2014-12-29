@@ -9,6 +9,8 @@
   (:import-from :woo.ev.socket
                 :socket
                 :socket-open-p
+                :socket-remote-addr
+                :socket-remote-port
                 :socket-data
                 :close-socket
                 :write-socket-data
@@ -24,6 +26,8 @@
                 :socket-closed)
   (:export :socket
            :socket-open-p
+           :socket-remote-addr
+           :socket-remote-port
            :with-event-loop
            :tcp-server
            :close-tcp-server

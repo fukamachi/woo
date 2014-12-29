@@ -62,7 +62,6 @@
 
            :sockaddr
            :sockaddr-in
-           :sockaddr-storage
 
            :+MSG-OOB+
            :+MSG-PEEK+
@@ -89,6 +88,7 @@
            :getpeername
            :getsockname
            :getsockopt
+           :inet-ntoa
            :listen
            :recvfrom
            :recvmsg

@@ -45,6 +45,8 @@
            :socket-write-watcher
            :socket-timeout-timer
            :socket-last-activity
+           :socket-remote-addr
+           :socket-remote-port
            :socket-data
            :socket-read-cb
            :socket-open-p
@@ -67,6 +69,8 @@
    :type (simple-array cffi:foreign-pointer (3)))
   (last-activity (lev:ev-now *evloop*) :type double-float)
   (fd nil :type fixnum)
+  remote-addr
+  remote-port
   data
   (tcp-read-cb nil :type symbol)
   (read-cb nil :type (or null function))

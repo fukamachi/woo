@@ -37,7 +37,7 @@
                 :+SOCK-NONBLOCK+
                 :socket
                 :sockaddr-in
-                :sockaddr-storage
+                :inet-ntoa
                 :setsockopt
                 :+AF-INET+
                 :+SOCK-STREAM+
@@ -129,10 +129,10 @@
                 (- timeout now))
           (lev:ev-timer-again evloop timer)))))
 
-(defvar *dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-storage)))
+(defvar *dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-in)))
 (defvar *dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
-(wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
-(setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
+(wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+(setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
@@ -162,7 +162,11 @@
        (let ((existing-socket (deref-data-from-pointer client-fd)))
          (when existing-socket
            (free-watchers existing-socket)))
-       (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb)))
+       (let* ((remote-addr (wsock:inet-ntoa
+                            (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr)))
+              (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
+              (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
+                        :remote-addr remote-addr :remote-port remote-port)))
          (setf (deref-data-from-pointer client-fd) socket)
          (let* ((callbacks (callbacks fd))
                 (read-cb (getf callbacks :read-cb))

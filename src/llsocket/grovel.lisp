@@ -91,9 +91,6 @@
 (cstruct sockaddr "struct sockaddr"
   (family "sa_family" :type sa-family-t))
 
-(cstruct sockaddr-storage "struct sockaddr_storage"
-  (family "ss_family" :type sa-family-t))
-
 (cstruct sockaddr-in "struct sockaddr_in"
   (family "sin_family" :type sa-family-t)
   (port "sin_port" :type in-port-t)

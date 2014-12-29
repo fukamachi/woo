@@ -13,7 +13,9 @@
   (:import-from :woo.ev
                 :*buffer-size*
                 :*connection-timeout*
-                :*evloop*)
+                :*evloop*
+                :socket-remote-addr
+                :socket-remote-port)
   (:import-from :lev
                 :ev-loop-fork)
   (:import-from :quri
@@ -214,6 +216,8 @@
               :path-info (and path (quri:url-decode path))
               :query-string query
               :url-scheme :http
+              :remote-addr (socket-remote-addr socket)
+              :remote-port (socket-remote-port socket)
               :request-uri uri
               :clack.streaming t
               :clack.nonblocking t
