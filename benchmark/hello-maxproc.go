@@ -5,7 +5,7 @@ package main
 import (
 	"fmt"
 	"net/http"
-  "runtime"
+	"runtime"
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
@@ -13,7 +13,7 @@ func hello(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-  runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU())
 	http.HandleFunc("/", hello)
 	http.ListenAndServe(":5000", nil)
 }
