@@ -13,6 +13,7 @@ install:
 
 before_script:
   - git clone https://github.com/fukamachi/lev ~/lisp/lev
+  - git clone https://github.com/fukamachi/fast-http ~/lisp/fast-http
 
 script:
   - cl -e '(ql:quickload :prove)'
