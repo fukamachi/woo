@@ -76,6 +76,7 @@
   (read-cb nil :type (or null function))
   (write-cb nil :type (or null function))
   (open-p t :type boolean)
+  (write-initialized-p nil :type boolean)
 
   (buffer (make-output-buffer)))
 
@@ -203,6 +204,7 @@
 
     (let ((completedp (flush-buffer socket)))
       (when completedp
+        (setf (socket-write-initialized-p socket) nil)
         (lev:ev-io-stop evloop io)))))
 
 (defun init-write-io (socket &key write-cb)
@@ -211,9 +213,11 @@
         (fd (socket-fd socket)))
     (lev:ev-io-init io 'async-write-cb fd lev:+EV-WRITE+)
     (lev:ev-io-start *evloop* io)
+    (setf (socket-write-initialized-p socket) t)
     t))
 
 (defmacro with-async-writing ((socket &key write-cb) &body body)
   `(progn
      ,@body
-     (init-write-io ,socket :write-cb ,write-cb)))
+     (unless (socket-write-initialized-p ,socket)
+       (init-write-io ,socket :write-cb ,write-cb))))

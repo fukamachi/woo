@@ -250,21 +250,17 @@
     (destructuring-bind (status headers &optional (body no-body))
         clack-res
       (when (eq body no-body)
-        (let ((default-close close))
-          (setf (getf headers :transfer-encoding) "chunked")
-          (wev:with-async-writing (socket)
-            (write-response-headers socket status headers))
-          (return-from handle-normal-response
-            (lambda (body &key (close nil close-specified-p))
-              (wev:with-async-writing (socket)
-                (etypecase body
-                  (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
-                  (vector (write-body-chunk socket body)))
-                (setq close (if close-specified-p
-                                close
-                                default-close))
-                (when close
-                  (finish-response socket *empty-chunk*)))))))
+        (setf (getf headers :transfer-encoding) "chunked")
+        (wev:with-async-writing (socket)
+          (write-response-headers socket status headers))
+        (return-from handle-normal-response
+          (lambda (body &key (close nil))
+            (wev:with-async-writing (socket)
+              (etypecase body
+                (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
+                (vector (write-body-chunk socket body)))
+              (when close
+                (finish-response socket *empty-chunk*))))))
 
       (etypecase body
         (null
