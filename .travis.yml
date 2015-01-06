@@ -8,6 +8,9 @@ install:
   # Install cl-travis
   - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
 
+before_script:
+  - git clone https://github.com/fukamachi/lev ~/lisp/lev
+
 script:
   - cl -e '(ql:quickload :prove)'
        -e '(setf *debugger-hook*
