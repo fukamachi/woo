@@ -203,7 +203,8 @@
       (return-from async-write-cb))
 
     (let ((completedp (flush-buffer socket)))
-      (when completedp
+      (when (and completedp
+                 (socket-open-p socket))
         (setf (socket-write-initialized-p socket) nil)
         (lev:ev-io-stop evloop io)))))
 
