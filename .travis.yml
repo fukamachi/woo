@@ -4,6 +4,9 @@ env:
   matrix:
     - LISP=sbcl
 
+before_install:
+  - sudo apt-get install libev-dev
+
 install:
   # Install cl-travis
   - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
