@@ -1,0 +1,18 @@
+language: common-lisp
+
+env:
+  matrix:
+    - LISP=sbcl
+
+install:
+  # Install cl-travis
+  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
+
+script:
+  - cl -e '(ql:quickload :prove)'
+       -e '(setf *debugger-hook*
+                 (lambda (c h)
+                   (declare (ignore c h))
+                   (uiop:quit -1)))'
+       -e '(or (prove:run :woo-test)
+               (uiop:quit -1))'
