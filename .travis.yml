@@ -16,10 +16,6 @@ before_script:
   - git clone https://github.com/fukamachi/fast-http ~/lisp/fast-http
 
 script:
-  - cl -e '(ql:quickload :prove)'
-       -e '(setf *debugger-hook*
-                 (lambda (c h)
-                   (declare (ignore c h))
-                   (uiop:quit -1)))'
+  - cl -l prove
        -e '(or (prove:run :woo-test)
                (uiop:quit -1))'
