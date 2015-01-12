@@ -4,6 +4,10 @@ os:
   - linux
   - osx
 
+matrix:
+  allow_failures:
+    - os: osx
+
 env:
   matrix:
     - LISP=sbcl
