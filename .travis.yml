@@ -9,7 +9,8 @@ env:
     - LISP=sbcl
 
 before_install:
-  - sudo apt-get install libev-dev
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install libev-dev; fi
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
 
 install:
   # Install cl-travis
