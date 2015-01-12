@@ -14,7 +14,7 @@ before_install:
 
 install:
   # Install cl-travis
-  - curl https://raw.githubusercontent.com/luismbo/cl-travis/master/install.sh | bash
+  - curl https://raw.githubusercontent.com/fukamachi/cl-travis/multi-os/install.sh | bash
 
 before_script:
   - git clone https://github.com/fukamachi/lev ~/lisp/lev
