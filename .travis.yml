@@ -1,5 +1,9 @@
 language: common-lisp
 
+os:
+  - linux
+  - osx
+
 env:
   matrix:
     - LISP=sbcl
