@@ -1,3 +1,8 @@
+#+freebsd
+(progn
+  (include "time.h")
+  (include "sys/time.h"))
+
 (include "sys/socket.h" "netinet/in.h")
 
 (in-package :woo.llsocket)
