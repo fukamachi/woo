@@ -189,12 +189,13 @@
                    (fast-write-sequence data
                                         (socket-buffer socket)
                                         n))))))
-        (when write-cb
-          (funcall (the function write-cb) socket))
-        ;; Need to check if 'socket' is still open because it may be closed in write-cb.
-        (when (socket-open-p socket)
-          (setf (socket-write-cb socket) nil)
-          (reset-buffer socket))
+        (when completedp
+          (when write-cb
+            (funcall (the function write-cb) socket)
+            ;; Need to check if 'socket' is still open because it may be closed in write-cb.
+            (when (socket-open-p socket)
+              (setf (socket-write-cb socket) nil)
+              (reset-buffer socket))))
         completedp))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
