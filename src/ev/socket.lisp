@@ -158,40 +158,44 @@
     (declare (type (simple-array (unsigned-byte 8) (*)) data))
     (cffi:with-pointer-to-vector-data (data-sap data)
       (let ((nwrote 0)
-            (len (length data)))
+            (len (length data))
+            (completedp nil))
         (declare (dynamic-extent nwrote))
-        (loop
-          (let ((n (wsys:write fd data-sap len)))
-            (declare (dynamic-extent n))
-            (case n
-              (-1
-               (let ((errno (wsys:errno)))
-                 (return-from flush-buffer
-                   (cond
-                     ((or (= errno wsys:EWOULDBLOCK)
-                          (= errno wsys:EINTR))
-                      nil)
-                     ((or (= errno wsys:ECONNABORTED)
-                          (= errno wsys:ECONNREFUSED)
-                          (= errno wsys:ECONNRESET))
-                      (vom:error "Connection is already closed (Code: ~D)" errno)
-                      (close-socket socket)
-                      t)
-                     (t
-                      (error "Unexpected error (Code: ~D)" errno))))))
-              (otherwise
-               (setf (socket-last-activity socket) (lev:ev-now *evloop*))
-               (incf nwrote n)
-               (if (= nwrote len)
-                   (return)
-                   (cffi:incf-pointer data-sap n))))))
+        (let ((n (wsys:write fd data-sap len)))
+          (declare (dynamic-extent n))
+          (case n
+            (-1
+             (let ((errno (wsys:errno)))
+               (return-from flush-buffer
+                 (cond
+                   ((or (= errno wsys:EWOULDBLOCK)
+                        (= errno wsys:EINTR))
+                    nil)
+                   ((or (= errno wsys:ECONNABORTED)
+                        (= errno wsys:ECONNREFUSED)
+                        (= errno wsys:ECONNRESET))
+                    (vom:error "Connection is already closed (Code: ~D)" errno)
+                    (close-socket socket)
+                    t)
+                   (t
+                    (error "Unexpected error (Code: ~D)" errno))))))
+            (otherwise
+             (setf (socket-last-activity socket) (lev:ev-now *evloop*))
+             (incf nwrote n)
+             (if (= nwrote len)
+                 (setq completedp t)
+                 (progn
+                   (reset-buffer socket)
+                   (fast-write-sequence data
+                                        (socket-buffer socket)
+                                        n))))))
         (when write-cb
           (funcall (the function write-cb) socket))
         ;; Need to check if 'socket' is still open because it may be closed in write-cb.
         (when (socket-open-p socket)
           (setf (socket-write-cb socket) nil)
           (reset-buffer socket))
-        T))))
+        completedp))))
 
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
   (declare (ignore events))
