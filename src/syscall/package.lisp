@@ -22,5 +22,8 @@
            :memset
            :bzero
 
-           :errno))
+           :errno
+
+           :getpid
+           :getppid))
 (in-package :woo.syscall)

@@ -86,16 +86,18 @@
                                                        :fd fd))
                                  (lev:ev-signal-init signal-watcher 'sigint-cb 2) ;; SIGINT
                                  (lev:ev-signal-start *evloop* signal-watcher)
-                                 (let ((times worker-num))
+                                 (let ((times (1- worker-num)))
                                    (tagbody forking
                                       (let ((pid #+sbcl (sb-posix:fork)
                                                  #-sbcl (wsys:fork)))
                                         (if (zerop pid)
-                                            (unless (zerop (decf times))
-                                              (go forking))
                                             (progn
                                               (lev:ev-loop-fork wev:*evloop*)
-                                              (format t "Worker started: ~A~%" pid)))))))
+                                              (format t "Worker started: ~A~%" (wsys:getpid)))
+                                            (progn
+                                              (unless (zerop (decf times))
+                                                (go forking))
+                                              (format t "Worker started: ~A~%" (wsys:getpid))))))))
                  (wev:close-tcp-server listener)
                  (cffi:foreign-free signal-watcher))))
            (start-server ()

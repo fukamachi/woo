@@ -65,3 +65,7 @@
   #+sbcl (sb-impl::get-errno)
   #+ccl (ccl::%get-errno)
   #-(or sbcl ccl) nil)
+
+(defcfun (getpid "getpid") pid-t)
+
+(defcfun (getppid "getppid") pid-t)
