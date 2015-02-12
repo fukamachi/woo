@@ -121,11 +121,7 @@
       (fast-http:parsing-error (e)
         (vom:error "fast-http parsing error: ~A" e)
         (write-response-headers socket 400 ())
-        (finish-response socket (princ-to-string e)))
-      (fast-http:fast-http-error (e)
-        (vom:error "fast-http error: ~A" e)
-        (write-response-headers socket 500 ())
-        (finish-response socket #.(trivial-utf-8:string-to-utf-8-bytes "Internal Server Error"))))))
+        (finish-response socket (princ-to-string e))))))
 
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
@@ -241,8 +237,6 @@
                                            (handle-normal-response http socket clack-res)
                                          (wev:socket-closed ()))))))
     (wev:tcp-error (e)
-      (vom:error (princ-to-string e)))
-    (t (e)
       (vom:error (princ-to-string e)))))
 
 (defun handle-normal-response (http socket clack-res)
