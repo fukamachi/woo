@@ -111,8 +111,8 @@
   (declare (optimize (speed 3) (safety 0)))
   (wev:write-socket-data socket *crlf*))
 
-(declaim (type (simple-array character (31)) *date-header*))
-(defvar *date-header* (make-string 31))
+(declaim (type (simple-array character (29)) *date-header*))
+(defvar *date-header* "Thu, 01 Jan 1970 00:00:00 GMT")
 
 (declaim (inline integer-to-character))
 (defun integer-to-character (int)
@@ -122,40 +122,26 @@
 
 (defun current-time ()
   (declare (optimize (speed 3) (safety 0)))
-  (flet ((timezone-offset (unix-time timezone)
-           (declare (type fixnum unix-time))
-           (let* ((zone (local-time::%realize-timezone timezone))
-                  (subzone-idx (if (zerop (length (local-time::timezone-indexes zone)))
-                                   0
-                                   (elt (local-time::timezone-indexes zone)
-                                        (local-time::transition-position unix-time
-                                                                         (local-time::timezone-transitions zone)))))
-                  (subzone (svref (local-time::timezone-subzones zone) subzone-idx)))
-             (declare (type fixnum subzone-idx))
-             (local-time::subzone-offset subzone))))
-    (let* ((timezone local-time:*default-timezone*)
-           (sec (local-time::%get-current-time))
-           (offset (timezone-offset sec timezone)))
-      (declare (type fixnum sec))
-      (multiple-value-bind (days secs)
-          (floor (the (unsigned-byte 64) sec) local-time:+seconds-per-day+)
-        (decf days 11017)
-        (multiple-value-bind (adjusted-secs adjusted-days)
-            (local-time::%adjust-to-offset secs days offset)
-          (declare (type fixnum adjusted-secs adjusted-days))
-          (multiple-value-bind (hours minutes seconds)
-              (local-time::%timestamp-decode-time adjusted-secs)
-            (multiple-value-bind (year month day)
-                (local-time::%timestamp-decode-date adjusted-days)
-              (values
-               seconds
-               minutes
-               hours
-               day
-               month
-               year
-               (mod (the (unsigned-byte 64) (+ 3 adjusted-days)) 7)
-               offset))))))))
+  (let ((sec (local-time::%get-current-time)))
+    (declare (type fixnum sec))
+    (multiple-value-bind (days secs)
+        (floor (the (unsigned-byte 64) sec) local-time:+seconds-per-day+)
+      (decf days 11017)
+      (multiple-value-bind (adjusted-secs adjusted-days)
+          (local-time::%adjust-to-offset secs days 0)
+        (declare (type fixnum adjusted-secs adjusted-days))
+        (multiple-value-bind (hours minutes seconds)
+            (local-time::%timestamp-decode-time adjusted-secs)
+          (multiple-value-bind (year month day)
+              (local-time::%timestamp-decode-date adjusted-days)
+            (values
+             seconds
+             minutes
+             hours
+             day
+             month
+             year
+             (mod (the (unsigned-byte 64) (+ 3 adjusted-days)) 7))))))))
 
 (defun current-rfc-1123-timestamp ()
   (declare (optimize (speed 3) (safety 0)))
@@ -175,8 +161,9 @@
                         (floor ,val 10)
                       (write-char-to-date (integer-to-character quotient) ,start)
                       (write-char-to-date (integer-to-character remainder) ,(1+ start))))))
-    (multiple-value-bind (sec minute hour day month year weekday offset)
+    (multiple-value-bind (sec minute hour day month year weekday)
         (current-time)
+      (declare (type fixnum sec minute hour day month year weekday))
       (write-date (svref local-time::+short-day-names+ weekday) 0 3)
       (write-date ", " 3 2)
       (write-int-to-date day 5)
@@ -198,16 +185,7 @@
       (write-char-to-date #\: 19)
       (write-int-to-date minute 20)
       (write-char-to-date #\: 22)
-      (write-int-to-date sec 23)
-      (write-char-to-date #\Space 25)
-      (multiple-value-bind (offset-hours offset-secs)
-          (floor (the (unsigned-byte 64) offset) local-time::+seconds-per-hour+)
-        (declare (fixnum offset-hours offset-secs))
-        (write-char-to-date (if (minusp offset-hours) #\- #\+) 26)
-        (write-int-to-date (abs offset-hours) 27)
-        (let ((offset-min (truncate (the (unsigned-byte 64) (abs offset-secs))
-                                    local-time::+seconds-per-minute+)))
-          (write-int-to-date offset-min 29)))))
+      (write-int-to-date sec 23)))
   *date-header*)
 
 (defun response-headers-bytes (socket status headers &optional keep-alive-p)
