@@ -8,7 +8,7 @@
   (:import-from :woo.ev.util
                 :io-fd
                 :define-c-callback)
-  (:import-from :woo.syscall
+  (:import-from :wsys
                 #+nil :close
                 #+nil :write
                 :errno
@@ -17,7 +17,7 @@
                 :ECONNABORTED
                 :ECONNREFUSED
                 :ECONNRESET)
-  (:import-from :woo.llsocket
+  (:import-from :wsock
                 :shutdown
                 :+SHUT-RDWR+)
   (:import-from :lev

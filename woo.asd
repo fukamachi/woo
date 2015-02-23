@@ -23,6 +23,7 @@
   :depends-on (:lev
                :swap-bytes
                :cffi
+               :wsock
                :static-vectors
                :fast-http
                :quri
@@ -41,26 +42,12 @@
                  (:file "ev" :depends-on ("ev-packages"))
                  (:module "ev-packages"
                   :pathname "ev"
-                  :depends-on ("syscall" "llsocket")
                   :components
                   ((:file "event-loop")
                    (:file "socket" :depends-on ("event-loop" "util"))
                    (:file "tcp" :depends-on ("event-loop" "socket" "util" "condition"))
                    (:file "condition")
-                   (:file "util")))
-                 (:module "llsocket"
-                  :depends-on ("syscall")
-                  :serial t
-                  :components
-                  ((:file "package")
-                   (cffi-grovel:grovel-file "grovel")
-                   (:file "cffi")))
-                 (:module "syscall"
-                  :serial t
-                  :components
-                  ((:file "package")
-                   (cffi-grovel:grovel-file "types")
-                   (:file "main"))))))
+                   (:file "util"))))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :long-description
   #.(with-open-file (stream (merge-pathnames

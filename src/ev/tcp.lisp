@@ -17,7 +17,7 @@
                 :socket-last-activity)
   (:import-from :woo.ev.condition
                 :os-error)
-  (:import-from :woo.syscall
+  (:import-from :wsys
                 :set-fd-nonblock
                 #+nil :close
                 #+nil :read
@@ -28,7 +28,7 @@
                 :ECONNRESET
                 :EPROTO
                 :EINTR)
-  (:import-from :woo.llsocket
+  (:import-from :wsock
                 #-linux :accept
                 #+linux :accept4
                 :bind
