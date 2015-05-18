@@ -86,6 +86,10 @@
                     tcp-read-cb
                     fd
                     lev:+EV-READ+)
+    (lev:ev-io-init (socket-write-watcher socket)
+                    'async-write-cb
+                    fd
+                    lev:+EV-WRITE+)
     socket))
 
 (declaim (inline socket-read-watcher socket-write-watcher socket-timeout-timer))
@@ -215,12 +219,9 @@
 
 (defun init-write-io (socket &key write-cb)
   (setf (socket-write-cb socket) write-cb)
-  (let ((io (socket-write-watcher socket))
-        (fd (socket-fd socket)))
-    (lev:ev-io-init io 'async-write-cb fd lev:+EV-WRITE+)
-    (lev:ev-io-start *evloop* io)
-    (setf (socket-write-initialized-p socket) t)
-    t))
+  (lev:ev-io-start *evloop* (socket-write-watcher socket))
+  (setf (socket-write-initialized-p socket) t)
+  t)
 
 (defmacro with-async-writing ((socket &key write-cb) &body body)
   `(progn
