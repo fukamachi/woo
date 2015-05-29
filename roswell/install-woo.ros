@@ -1,0 +1,93 @@
+#!/bin/sh
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+
+#|
+Installer of 'woo' executable. (Experimental)
+|#
+
+(ql:quickload '(:clack :woo :uiop) :silent t)
+
+(defun command-line-args ()
+  (or #+ccl ccl:*command-line-argument-list*
+      #+sbcl sb-ext:*posix-argv*
+      #-(or ccl sbcl) (error "Not supported Lisp")))
+
+(defvar *woo-version*
+  (format nil "Woo ~A (~A/~A)"
+          (asdf:component-version (asdf:find-system :woo))
+          (lisp-implementation-type)
+          (lisp-implementation-version)))
+
+(defvar *woo-usage*
+  "Usage: woo <option..> app.lisp
+
+Options:
+  --port port             : port to listen on
+  --address address       : IP address to bind
+  --backlog backlog       : a number of backlog
+  --fd fd                 : file descriptor to listen on
+  --worker-num worker-num : a number of workers
+  --help                  : show this
+  --debug                 : a flag for development
+")
+
+(defun show-help ()
+  (format *error-output*
+          "~A~2%~A" *woo-version* *woo-usage*)
+  (ros:quit 1))
+
+(defun executable-toplevel ()
+  (let (run-args)
+    (flet ((add-args (opt val)
+             (setq run-args
+                   (nconc (list opt val)
+                          run-args))))
+      (destructuring-bind (program-name &rest argv)
+          (command-line-args)
+        (declare (ignore program-name))
+        (unless argv
+          (show-help))
+        ;; parse option args
+        (loop
+          (unless (and argv
+                       (<= 2 (length (first argv)))
+                       (string= "--" (first argv) :end2 2))
+            (return))
+          (let ((option (subseq (pop argv) 2)))
+            (cond
+              ((string= option "debug")
+               (add-args :debug t))
+              ((string= option "help")
+               (show-help))
+              (t (let ((value (pop argv)))
+                   (unless value
+                     (error "The value is not specified for '--~A'" option))
+                   (cond
+                     ((string= option "port")
+                      (add-args :port (parse-integer value)))
+                     ((string= option "address")
+                      (add-args :address value))
+                     ((string= option "backlog")
+                      (add-args :backlog (parse-integer value)))
+                     ((string= option "fd")
+                      (add-args :fd (parse-integer value)))
+                     ((string= option "worker-num")
+                      (add-args :worker-num (parse-integer value)))
+                     (t (warn "Unknown option: '--~A'" option)
+                        (show-help))))))))
+        (unless (and argv
+                     (null (rest argv)))
+          (warn "Invalid arguments")
+          (show-help))
+        (apply #'clack:clackup (first argv) :server :woo :use-thread nil run-args)))))
+
+(defun main (&rest argv)
+  (declare (ignorable argv))
+  (let ((install-path (asdf:system-relative-pathname :woo #P"roswell/woo")))
+    (sb-ext:save-lisp-and-die install-path
+                              :toplevel #'executable-toplevel
+                              :executable t)
+    (uiop:run-program `("ros" "install" ,(namestring install-path)))))
