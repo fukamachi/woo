@@ -18,6 +18,8 @@ before_install:
 
 install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/travis-install.sh | sh
+  # for thread-support on OS X
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
 
 script:
   - ros -s prove
