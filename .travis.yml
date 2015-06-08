@@ -19,10 +19,6 @@ before_install:
 install:
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/travis-install.sh | sh
 
-before_script:
-  - git clone https://github.com/fukamachi/lev ~/lisp/lev
-  - git clone https://github.com/fukamachi/fast-http ~/lisp/fast-http
-
 script:
   - ros -s prove
         -e '(or (prove:run :woo-test)
