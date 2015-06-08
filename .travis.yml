@@ -17,14 +17,13 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
 
 install:
-  # Install cl-travis
-  - curl https://raw.githubusercontent.com/fukamachi/cl-travis/multi-os/install.sh | bash
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/travis-install.sh | sh
 
 before_script:
   - git clone https://github.com/fukamachi/lev ~/lisp/lev
   - git clone https://github.com/fukamachi/fast-http ~/lisp/fast-http
 
 script:
-  - cl -l prove
-       -e '(or (prove:run :woo-test)
-               (uiop:quit -1))'
+  - ros -s prove
+        -e '(or (prove:run :woo-test)
+                (uiop:quit -1))'
