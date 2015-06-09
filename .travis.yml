@@ -13,7 +13,7 @@ before_install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
 
 install:
-  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/travis-install.sh | sh
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/master/scripts/install-for-ci.sh | sh
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
 
