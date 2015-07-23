@@ -247,6 +247,7 @@
         clack-res
       (when (eq body no-body)
         (setf (getf headers :transfer-encoding) "chunked")
+        (setf (getf headers :content-length) nil)
         (wev:with-async-writing (socket)
           (write-response-headers socket status headers))
         (return-from handle-normal-response
@@ -266,6 +267,7 @@
            (write-response-headers socket status headers (not close))))
         (pathname
          (setf (getf headers :transfer-encoding) "chunked")
+         (setf (getf headers :content-length) nil)
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
                                                           (wev:close-socket socket))))
