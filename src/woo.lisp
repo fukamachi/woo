@@ -266,19 +266,24 @@
                                                           (wev:close-socket socket))))
            (write-response-headers socket status headers (not close))))
         (pathname
-         (setf (getf headers :transfer-encoding) "chunked")
-         (setf (getf headers :content-length) nil)
-         (wev:with-async-writing (socket :write-cb (and close
-                                                        (lambda (socket)
-                                                          (wev:close-socket socket))))
-           (write-response-headers socket status headers (not close))
-           (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8))))
-             (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
-               (loop
-                 for n = (read-sequence buffer in)
-                 until (zerop n)
-                 do (write-body-chunk socket buffer :end n)))
-             (wev:write-socket-data socket *empty-chunk*))))
+         (let ((chunked-response-p (null (getf headers :content-length))))
+           (when chunked-response-p
+             (setf (getf headers :transfer-encoding) "chunked"))
+           (wev:with-async-writing (socket :write-cb (and close
+                                                          (lambda (socket)
+                                                            (wev:close-socket socket))))
+             (write-response-headers socket status headers (not close))
+             (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8)))
+                   (write-fn (if chunked-response-p
+                                 #'write-body-chunk
+                                 #'wev:write-socket-data)))
+               (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
+                 (loop
+                   for n = (read-sequence buffer in)
+                   until (zerop n)
+                   do (funcall write-fn socket buffer :end n)))
+               (when chunked-response-p
+                 (wev:write-socket-data socket *empty-chunk*))))))
         (list
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
