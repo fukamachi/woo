@@ -83,6 +83,10 @@
   (socket :int)
   (how :int))
 
+(cffi:defcfun ("close" close-socket) :int
+  (socket :int))
+
+
 (cffi:defcfun ("socket" socket) :int
   (domain :int)  ;; +AF-*+
   (type :int)    ;; +SOCK-*+
