@@ -1,5 +1,7 @@
 language: common-lisp
 
+sudo: false
+
 os:
   - linux
   - osx
@@ -8,15 +10,18 @@ env:
   global:
     - PATH=~/.roswell/bin:$PATH
     - ROSWELL_BRANCH=v0.0.3.37
+    - ROSWELL_INSTALL_DIR=$HOME/.roswell
   matrix:
     - LISP=sbcl
 
-before_install:
-  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install libev-dev; fi
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
+addons:
+  apt:
+    packages:
+      - libev-dev
 
 install:
-  - curl -L https://raw.githubusercontent.com/snmsts/roswell/release/scripts/install-for-ci.sh | sh
+  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/master/scripts/install-for-ci.sh | sh
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
   - ros install prove
