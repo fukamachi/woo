@@ -121,7 +121,9 @@
       (fast-http:parsing-error (e)
         (vom:error "fast-http parsing error: ~A" e)
         (write-response-headers socket 400 ())
-        (finish-response socket (princ-to-string e))))))
+        (finish-response socket (map '(simple-array (unsigned-byte 8) (*))
+                                     #'char-code
+				     (princ-to-string e)))))))
 
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
