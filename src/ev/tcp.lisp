@@ -150,7 +150,8 @@
               ((or (= errno wsys:EWOULDBLOCK)
                    (= errno wsys:ECONNABORTED)
                    (= errno wsys:EPROTO)
-                   (= errno wsys:EINTR)))
+                   (= errno wsys:EINTR)
+		   (= errno #+sbcl sb-posix:EMFILE #-sbcl 24)))
               (t
                (error "Can't accept connection (Code: ~D)" errno)))))
       (otherwise
