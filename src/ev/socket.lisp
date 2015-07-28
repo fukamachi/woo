@@ -17,9 +17,6 @@
                 :ECONNABORTED
                 :ECONNREFUSED
                 :ECONNRESET)
-  (:import-from :woo.llsocket
-                :shutdown
-                :+SHUT-RDWR+)
   (:import-from :lev
                 :ev-now
                 :ev-io
@@ -116,7 +113,7 @@
 (defun close-socket (socket)
   (free-watchers socket)
   (let ((fd (socket-fd socket)))
-    (wsock:shutdown fd wsock:+SHUT-RDWR+)
+    (wsys:close fd)
     (remove-pointer-from-registry fd))
   (setf (socket-open-p socket) nil
         (socket-read-cb socket) nil
