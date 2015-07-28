@@ -96,7 +96,6 @@
            :sendmsg
            :setsockopt
            :shutdown
-	   :close-socket
            :socket
            :socketpair))
 (in-package :woo.llsocket)
