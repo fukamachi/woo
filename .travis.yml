@@ -1,6 +1,7 @@
 language: common-lisp
 
-sudo: false
+# Binding to 0.0.0.0 would be failed sometimes if sudo is false.
+sudo: required
 
 os:
   - linux
