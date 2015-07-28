@@ -52,7 +52,7 @@
            :*buffer-size*
            :*connection-timeout*
            :*default-backlog-size*
-	   :*default-worker-num*))
+           :*default-worker-num*))
 (in-package :woo)
 
 (defvar *app* nil)
@@ -125,7 +125,7 @@
         (write-response-headers socket 400 ())
         (finish-response socket (map '(simple-array (unsigned-byte 8) (*))
                                      #'char-code
-				     (princ-to-string e)))))))
+                                     (princ-to-string e)))))))
 
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
