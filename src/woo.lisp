@@ -121,11 +121,15 @@
   (let ((parser (wev:socket-data socket)))
     (handler-case (funcall parser data :start start :end end)
       (fast-http:parsing-error (e)
-        (vom:error "fast-http parsing error: ~A" e)
-        (write-response-headers socket 400 ())
-        (finish-response socket (map '(simple-array (unsigned-byte 8) (*))
-                                     #'char-code
-                                     (princ-to-string e)))))))
+        (vom:error "HTTP parse error: ~A" e)
+        (let ((body #.(map '(simple-array (unsigned-byte 8) (*))
+                           #'char-code
+                           "400 Bad Request")))
+          (wev:with-async-writing (socket :write-cb #'wev:close-socket)
+            (write-response-headers socket 400
+                                    (list :connection "close"
+                                          :content-length (length body)))
+            (wev:write-socket-data socket body)))))))
 
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
