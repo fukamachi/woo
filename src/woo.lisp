@@ -51,15 +51,13 @@
            :stop
            :*buffer-size*
            :*connection-timeout*
-           :*default-backlog-size*
-	   :*default-worker-num*))
+           :*default-backlog-size*))
 (in-package :woo)
 
 (defvar *app* nil)
 (defvar *debug* nil)
 
 (defvar *default-backlog-size* 128)
-(defvar *default-worker-num* nil)
 
 (cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
@@ -70,7 +68,7 @@
   (cl-user::quit))
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
-                  (worker-num *default-worker-num*))
+                  worker-num)
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
