@@ -131,9 +131,12 @@
          (lev:ev-signal-start *evloop* watcher))
        watchers))
 
-(defun start-sigquit-watcher (watchers)
-  (lev:ev-signal-init (aref watchers 0) 'sigint-cb 2)
-  (lev:ev-signal-start *evloop* (aref watchers 0)))
+(defun stop-signal-watchers (watchers)
+  (map nil
+       (lambda (watcher)
+         (lev:ev-signal-stop (lev:ev-default-loop 0) watcher)
+         (cffi:foreign-free watcher))
+       watchers))
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
@@ -170,7 +173,7 @@
                                                 (go forking))
                                               (format t "Worker started: ~A~%" (wsys:getpid))))))))
                  (wev:close-tcp-server *listener*)
-                 (map nil #'cffi:foreign-free signal-watchers))))
+                 (stop-signal-watchers signal-watchers))))
            (start-server ()
              (let ((signal-watchers (make-signal-watchers)))
                (unwind-protect (wev:with-event-loop ()
@@ -182,7 +185,7 @@
                                                        :fd fd))
                                  (start-signal-watchers signal-watchers))
                  (wev:close-tcp-server *listener*)
-                 (map nil #'cffi:foreign-free signal-watchers)))))
+                 (stop-signal-watchers signal-watchers)))))
       (funcall (if worker-num #'start-server-multi #'start-server)))))
 
 (defun connect-cb (socket)
