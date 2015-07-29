@@ -10,6 +10,7 @@
   (:export :close
            :write
            :read
+           :kill
            :set-fd-nonblock
            :EWOULDBLOCK
            :EINTR

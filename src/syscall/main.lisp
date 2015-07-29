@@ -22,6 +22,10 @@
   (cmd :int)
   (arg :int))
 
+(defcfun ("kill" kill) :int
+  (pid :int)
+  (sig :int))
+
 (defconstant F-GETFL 3.)
 (defconstant F-SETFL 4.)
 (defconstant O-NONBLOCK 4.)
