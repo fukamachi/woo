@@ -10,7 +10,6 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
-                :free-watchers
                 :socket-read-cb
                 :socket-read-watcher
                 :socket-timeout-timer
@@ -161,7 +160,7 @@
        ;; I need to check if OS is gonna reuse the file descriptor.
        (let ((existing-socket (deref-data-from-pointer client-fd)))
          (when existing-socket
-           (free-watchers existing-socket)))
+           (close-socket existing-socket)))
        (let* ((remote-addr (wsock:inet-ntoa
                             (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr)))
               (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
