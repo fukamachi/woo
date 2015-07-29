@@ -72,11 +72,14 @@
                 :split-sequence)
   (:export :tcp-server
            :close-tcp-server
+	   :skip-emfile-restart
+	   :emfile-error
            :*connection-timeout*))
 (in-package :woo.ev.tcp)
 
 (declaim (type double-float *connection-timeout*))
 (defvar *connection-timeout* (coerce (* 15 60) 'double-float))
+
 
 (define-c-callback tcp-read-cb :void ((evloop :pointer) (watcher :pointer) (events :int))
   (declare (ignore evloop events))
@@ -134,53 +137,59 @@
 (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
 (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
 
+(define-condition emfile-error (error)
+  ((text :initarg :text :reader text)))
+
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore events))
-  (let* ((fd (io-fd listener))
-         (client-fd #+linux (wsock:accept4 fd
-                                           *dummy-sockaddr*
-                                           *dummy-socklen*
-                                           (logxor wsock:+SOCK-CLOEXEC+ wsock:+SOCK-NONBLOCK+))
-                    #-linux (wsock:accept fd
-                                          *dummy-sockaddr*
-                                          *dummy-socklen*)))
-    (case client-fd
-      (-1 (let ((errno (wsys:errno)))
-            (cond
-              ((or (= errno wsys:EWOULDBLOCK)
-                   (= errno wsys:ECONNABORTED)
-                   (= errno wsys:EPROTO)
-                   (= errno wsys:EINTR)
-		   (= errno #+sbcl sb-posix:EMFILE #-sbcl 24)))
-              (t
-               (error "Can't accept connection (Code: ~D)" errno)))))
-      (otherwise
-       #-linux (set-fd-nonblock client-fd t)
+  (restart-case
+   (let* ((fd (io-fd listener))
+	  (client-fd #+linux (wsock:accept4 fd
+					    *dummy-sockaddr*
+					    *dummy-socklen*
+					    (logxor wsock:+SOCK-CLOEXEC+ wsock:+SOCK-NONBLOCK+))
+		     #-linux (wsock:accept fd
+					   *dummy-sockaddr*
+					   *dummy-socklen*)))
+     (case client-fd
+       (-1 (let ((errno (wsys:errno)))
+	     (cond
+	       ((or (= errno wsys:EWOULDBLOCK)
+		    (= errno wsys:ECONNABORTED)
+		    (= errno wsys:EPROTO)
+		    (= errno wsys:EINTR)
+		    (= errno #+sbcl sb-posix:EMFILE #-sbcl 24)))
+	       (t
+		(error "Can't accept connection (Code: ~D)" errno)))))
+       (otherwise
+	#-linux (set-fd-nonblock client-fd t)
 
-       ;; In case the client disappeared before closing the socket,
-       ;; a socket object remains in the data registry.
-       ;; I need to check if OS is gonna reuse the file descriptor.
-       (let ((existing-socket (deref-data-from-pointer client-fd)))
-         (when existing-socket
-           (free-watchers existing-socket)))
-       (let* ((remote-addr (wsock:inet-ntoa
-                            (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr)))
-              (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
-              (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
-                        :remote-addr remote-addr :remote-port remote-port)))
-         (setf (deref-data-from-pointer client-fd) socket)
-         (let* ((callbacks (callbacks fd))
-                (read-cb (getf callbacks :read-cb))
-                (connect-cb (getf callbacks :connect-cb)))
-           (when connect-cb
-             (funcall (the function connect-cb) socket))
-           (when read-cb
-             (setf (socket-read-cb socket) read-cb)))
-         (lev:ev-io-start evloop (socket-read-watcher socket))
-         (let ((timer (socket-timeout-timer socket)))
-           (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
-           (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
-           (timeout-cb evloop timer lev:+EV-TIMER+)))))))
+	;; In case the client disappeared before closing the socket,
+	;; a socket object remains in the data registry.
+	;; I need to check if OS is gonna reuse the file descriptor.
+	(let ((existing-socket (deref-data-from-pointer client-fd)))
+	  (when existing-socket
+	    (free-watchers existing-socket)))
+	(let* ((remote-addr (wsock:inet-ntoa
+			     (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr)))
+	       (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
+	       (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
+				    :remote-addr remote-addr :remote-port remote-port)))
+	  (setf (deref-data-from-pointer client-fd) socket)
+	  (let* ((callbacks (callbacks fd))
+		 (read-cb (getf callbacks :read-cb))
+		 (connect-cb (getf callbacks :connect-cb)))
+	    (when connect-cb
+	      (funcall (the function connect-cb) socket))
+	    (when read-cb
+	      (setf (socket-read-cb socket) read-cb)))
+	  (lev:ev-io-start evloop (socket-read-watcher socket))
+	  (let ((timer (socket-timeout-timer socket)))
+	    (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
+	    (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
+	    (timeout-cb evloop timer lev:+EV-TIMER+))))))
+    (skip-emfile-restart ()
+      nil)))
 
 (defun vector-to-integer (vector)
   "Convert a vector to a 32-bit unsigned integer."
