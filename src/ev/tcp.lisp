@@ -151,14 +151,16 @@
 		     #-linux (wsock:accept fd
 					   *dummy-sockaddr*
 					   *dummy-socklen*)))
+
      (case client-fd
        (-1 (let ((errno (wsys:errno)))
 	     (cond
 	       ((or (= errno wsys:EWOULDBLOCK)
 		    (= errno wsys:ECONNABORTED)
 		    (= errno wsys:EPROTO)
-		    (= errno wsys:EINTR)
-		    (= errno #+sbcl sb-posix:EMFILE #-sbcl 24)))
+		    (= errno wsys:EINTR)))
+	       ((= errno #+sbcl sb-posix:EMFILE #-sbcl 24)
+		(error 'emfile-error "Too many file open: (Code ~D)" errno))
 	       (t
 		(error "Can't accept connection (Code: ~D)" errno)))))
        (otherwise
