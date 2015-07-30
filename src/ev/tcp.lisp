@@ -152,7 +152,7 @@
                    (= errno wsys:EPROTO)
                    (= errno wsys:EINTR)))
               (t
-               (error "Can't accept connection (Code: ~D)" errno)))))
+               (vom:error "Can't accept connection (Code: ~D)" errno)))))
       (otherwise
        #-linux (set-fd-nonblock client-fd t)
 
