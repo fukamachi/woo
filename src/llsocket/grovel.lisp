@@ -25,6 +25,7 @@
 (constant (+SO-DEBUG+ "SO_DEBUG"))
 (constant (+SO-ACCEPTCONN+ "SO_ACCEPTCONN"))
 (constant (+SO-REUSEADDR+ "SO_REUSEADDR"))
+(constant (+SO-REUSEPORT+ "SO_REUSEPORT"))
 (constant (+SO-KEEPALIVE+ "SO_KEEPALIVE"))
 (constant (+SO-DONTROUTE+ "SO_DONTROUTE"))
 (constant (+SO-BROADCAST+ "SO_BROADCAST"))
