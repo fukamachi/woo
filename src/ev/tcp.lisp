@@ -99,7 +99,8 @@
                 (vom:error "Connection is already closed (Code: ~D)" errno)
                 (close-socket socket))
                (t
-                (error "Unexpected error (Code: ~D)" errno))))
+                (vom:error "Unexpected error (Code: ~D)" errno)
+                (close-socket socket))))
            (return))
           (0
            ;; EOF
