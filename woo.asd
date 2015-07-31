@@ -33,7 +33,8 @@
                :local-time
                :alexandria
                :split-sequence
-               #+sbcl :sb-posix)
+               #+sbcl :sb-posix
+               #+linux :uiop)
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response"))

@@ -18,6 +18,7 @@
            :+SO-DEBUG+
            :+SO-ACCEPTCONN+
            :+SO-REUSEADDR+
+           :+SO-REUSEPORT+
            :+SO-KEEPALIVE+
            :+SO-DONTROUTE+
            :+SO-BROADCAST+

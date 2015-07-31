@@ -193,7 +193,7 @@
        #'read-from-string
        (split-sequence #\. address)))
 
-(defun listen-on (address port &key (backlog 128))
+(defun listen-on (address port &key (backlog 128) sockopt)
   (cffi:with-foreign-object (sin '(:struct wsock:sockaddr-in))
     (wsys:bzero sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
     (cffi:with-foreign-slots ((wsock::family wsock::addr wsock::port) sin (:struct wsock:sockaddr-in))
@@ -212,7 +212,7 @@
                  :code (wsys:errno))))
       (cffi:with-foreign-object (on :int)
         (setf (cffi:mem-aref on :int) 1)
-        (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ wsock:+SO-REUSEADDR+ on (cffi:foreign-type-size :int)) -1)
+        (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
           (error 'os-error
                  :description "Cannot set socket option"
                  :code (wsys:errno))))
@@ -228,17 +228,17 @@
   (wsock:listen fd backlog)
   fd)
 
-(defun make-listener (address port &key backlog fd)
+(defun make-listener (address port &key backlog fd sockopt)
   (let ((fd (if fd
                 (listen-on-fd fd :backlog backlog)
-                (listen-on address port :backlog backlog)))
+                (listen-on address port :backlog backlog :sockopt sockopt)))
         (listener (cffi:foreign-alloc '(:struct lev:ev-io))))
     (lev:ev-io-init listener 'tcp-accept-cb fd lev:+EV-READ+)
     listener))
 
-(defun tcp-server (address port read-cb &key connect-cb (backlog 128) fd)
+(defun tcp-server (address port read-cb &key connect-cb (backlog 128) fd (sockopt wsock:+SO-REUSEADDR+))
   (check-event-loop-running)
-  (let ((listener (make-listener address port :backlog backlog :fd fd)))
+  (let ((listener (make-listener address port :backlog backlog :fd fd :sockopt sockopt)))
     (lev:ev-io-start *evloop* listener)
     (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
     listener))
