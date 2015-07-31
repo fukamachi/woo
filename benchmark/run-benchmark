@@ -1,0 +1,60 @@
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+
+(ql:quickload '(:uiop :woo) :silent t)
+
+(defun starts-with (x starts)
+  (and (<= (length starts) (length x))
+       (string= x starts :end1 (length starts))))
+
+(defun parse-argv (args)
+  (let (repeat)
+    (flet ((parse-int-value (option value)
+             (handler-case (parse-integer value)
+               (error (e)
+                 (error "Invalid value for ~S: ~S~%  ~A" option value e)))))
+      (values
+       (loop for option = (pop args)
+             for value = (pop args)
+             while option
+             if (not (starts-with option "--"))
+               do (error "Invalid option: ~S" option)
+             else
+               if (equal option "--worker")
+                 append (list :worker-num (parse-int-value option value))
+             else
+               if (equal option "--port")
+                 append (list :port (parse-int-value option value))
+             else
+               if (equal option "--repeat")
+                 do (setf repeat (parse-int-value option value))
+             else
+               do (error "Unknown option: ~S" option))
+       repeat))))
+
+(defun main (&rest argv)
+  (multiple-value-bind (args repeat)
+      (parse-argv argv)
+    (let ((pid #+sbcl (sb-posix:fork)
+               #-sbcl (wsys:fork)))
+      (if (zerop pid)
+          (progn
+            (format t "~&Starting a server at 127.0.0.1:~D~%" (getf args :port 5000))
+            (apply #'woo:run (lambda (env)
+                               (declare (ignore env))
+                               '(200 () ("Hello, World!")))
+                   :debug nil
+                   args))
+          (progn
+            (sleep 3)
+            (unwind-protect
+                 (dotimes (i (or repeat 3))
+                   (format t "~2&Running wrk (~D/~D)...~%" (1+ i) (or repeat 3))
+                   (uiop:run-program
+                    (list "wrk" "-c" "10" "-t" "4" "-d" "10" (format nil "http://127.0.0.1:~D" (getf args :port 5000)))
+                    :output *standard-output*
+                    :error-output *error-output*))
+              #+sbcl (sb-posix:kill pid 2)
+              #-sbcl (wsys:kill pid 2)))))))
