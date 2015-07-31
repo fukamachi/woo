@@ -104,15 +104,19 @@
                  (cffi:foreign-free signal-watcher))))
            (start-server ()
              (let (listener)
-               (unwind-protect (wev:with-event-loop ()
-                                 (setq listener
-                                       (wev:tcp-server address port
-                                                       #'read-cb
-                                                       :connect-cb #'connect-cb
-                                                       :backlog backlog
-                                                       :fd fd)))
-                 (wev:close-tcp-server listener)))))
-      (funcall (if worker-num #'start-server-multi #'start-server)))))
+	       (unwind-protect (wev:with-event-loop ()
+				     (setq listener
+					   (wev:tcp-server address port
+							   #'read-cb
+							   :connect-cb #'connect-cb
+							   :backlog backlog
+							   :fd fd)))
+		     (wev:close-tcp-server listener)))))
+      (handler-bind ((woo.ev.tcp:emfile-error (lambda (e)
+			      (vom:error "listener error: ~A" e)
+			      (when (find-restart 'woo.ev.tcp:skip-emfile-restart)
+				(invoke-restart 'woo.ev.tcp:skip-emfile-restart)))))
+	(funcall (if worker-num #'start-server-multi #'start-server))))))
 
 (defun connect-cb (socket)
   (setup-parser socket))
