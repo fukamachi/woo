@@ -53,8 +53,7 @@
            :write-socket-byte
            :flush-buffer
            :with-async-writing
-           :close-socket
-           :free-watchers))
+           :close-socket))
 (in-package :woo.ev.socket)
 
 (defstruct (socket (:constructor %make-socket))

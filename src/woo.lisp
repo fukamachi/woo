@@ -61,33 +61,104 @@
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
-(cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
+(defparameter *listener* nil)
+(defvar *child-worker-pids* '())
+
+(cffi:defcallback sigquit-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
+  (format t "~&[~D] Stopping a server...~%" (wsys:getpid))
+
+  ;; Stop accepting new clients.
+  (lev:ev-io-stop evloop *listener*)
+
+  ;; Stop child processes.
+  (dolist (pid *child-worker-pids*)
+    (wsys:kill pid 3))
+  (setq *child-worker-pids* '())
+
+  ;; Wait until all requests are served or passed 10 sec.
+  (loop
+    repeat 100
+    until (= (hash-table-count wev:*data-registry*) 0)
+    do (sleep 0.1))
+
+  ;; Close existing all sockets.
+  (maphash (lambda (fd socket)
+             (vom:warn "Force closing a socket (fd=~D) in ~D." fd (wsys:getpid))
+             (close-socket socket))
+           wev:*data-registry*)
+
+  ;; Stop all events.
   (lev:ev-break evloop lev:+EVBREAK-ALL+)
+
+  (format t "~&[~D] Bye.~%" (wsys:getpid))
+
   #+sbcl
   (sb-ext:exit)
   #-sbcl
   (cl-user::quit))
+
+(cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
+  (declare (ignore signal events))
+  (format t "~&[~D] Stopping a server immediately...~%" (wsys:getpid))
+
+  ;; Stop all events.
+  (lev:ev-break evloop lev:+EVBREAK-ALL+)
+
+  ;; Stop child processes.
+  (dolist (pid *child-worker-pids*)
+    (wsys:kill pid 2))
+  (setq *child-worker-pids* '())
+
+  (format t "~&[~D] Bye.~%" (wsys:getpid))
+
+  #+sbcl
+  (sb-ext:exit)
+  #-sbcl
+  (cl-user::quit))
+
+(defun make-signal-watchers ()
+  (make-array 2
+              :element-type 'cffi:foreign-pointer
+              :initial-contents (list (cffi:foreign-alloc '(:struct lev:ev-signal))
+                                      (cffi:foreign-alloc '(:struct lev:ev-signal)))))
+
+(defun start-signal-watchers (watchers)
+  (lev:ev-signal-init (aref watchers 0) 'sigint-cb 2)
+  (lev:ev-signal-init (aref watchers 1) 'sigquit-cb 3)
+  (map nil
+       (lambda (watcher)
+         (lev:ev-signal-start *evloop* watcher))
+       watchers))
+
+(defun stop-signal-watchers (watchers)
+  (map nil
+       (lambda (watcher)
+         (lev:ev-signal-stop (lev:ev-default-loop 0) watcher)
+         (cffi:foreign-free watcher))
+       watchers))
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
+
+  (setq *listener* nil
+        *child-worker-pids* '())
+
   (let ((*app* app)
         (*debug* debug))
     (flet ((start-server-multi ()
-             (let (listener
-                   (signal-watcher (cffi:foreign-alloc '(:struct lev:ev-signal))))
+             (let ((signal-watchers (make-signal-watchers)))
                (unwind-protect (wev:with-event-loop (:enable-fork t)
-                                 (setq listener
+                                 (setq *listener*
                                        (wev:tcp-server address port
                                                        #'read-cb
                                                        :connect-cb #'connect-cb
                                                        :backlog backlog
                                                        :fd fd))
-                                 (lev:ev-signal-init signal-watcher 'sigint-cb 2) ;; SIGINT
-                                 (lev:ev-signal-start *evloop* signal-watcher)
+                                 (start-signal-watchers signal-watchers)
                                  (let ((times (1- worker-num)))
                                    (tagbody forking
                                       (let ((pid #+sbcl (sb-posix:fork)
@@ -97,21 +168,24 @@
                                               (lev:ev-loop-fork wev:*evloop*)
                                               (format t "Worker started: ~A~%" (wsys:getpid)))
                                             (progn
+                                              (push pid *child-worker-pids*)
                                               (unless (zerop (decf times))
                                                 (go forking))
                                               (format t "Worker started: ~A~%" (wsys:getpid))))))))
-                 (wev:close-tcp-server listener)
-                 (cffi:foreign-free signal-watcher))))
+                 (wev:close-tcp-server *listener*)
+                 (stop-signal-watchers signal-watchers))))
            (start-server ()
-             (let (listener)
+             (let ((signal-watchers (make-signal-watchers)))
                (unwind-protect (wev:with-event-loop ()
-                                 (setq listener
+                                 (setq *listener*
                                        (wev:tcp-server address port
                                                        #'read-cb
                                                        :connect-cb #'connect-cb
                                                        :backlog backlog
-                                                       :fd fd)))
-                 (wev:close-tcp-server listener)))))
+                                                       :fd fd))
+                                 (start-signal-watchers signal-watchers))
+                 (wev:close-tcp-server *listener*)
+                 (stop-signal-watchers signal-watchers)))))
       (funcall (if worker-num #'start-server-multi #'start-server)))))
 
 (defun connect-cb (socket)

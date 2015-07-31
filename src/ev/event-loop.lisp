@@ -16,6 +16,7 @@
            :*evloop*
            :*buffer-size*
            :*input-buffer*
+           :*data-registry*
 
            :callbacks
            :remove-callbacks

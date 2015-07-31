@@ -50,6 +50,13 @@ See [Benchmarks](#benchmarks) for the detail.
   :worker-num 4)
 ```
 
+## Signal handling
+
+When the master process gets these signals, it kills worker processes and quits afterwards.
+
+- QUIT: graceful shutdown, waits for all requests are finished.
+- INT: shutdown immediately.
+
 ## Benchmarks
 
 Comparison of the server performance to return "Hello, World" for every requests. Here's the results of requests/sec scores.

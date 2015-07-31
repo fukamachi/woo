@@ -20,7 +20,8 @@
   (:import-from :woo.ev.event-loop
                 :with-event-loop
                 :*buffer-size*
-                :*evloop*)
+                :*evloop*
+                :*data-registry*)
   (:import-from :woo.ev.condition
                 :tcp-error
                 :socket-closed)
@@ -39,6 +40,7 @@
            :*buffer-size*
            :*connection-timeout*
            :*evloop*
+           :*data-registry*
 
            ;; conditions
            :tcp-error
