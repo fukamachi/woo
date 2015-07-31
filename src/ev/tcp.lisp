@@ -99,7 +99,8 @@
                 (vom:error "Connection is already closed (Code: ~D)" errno)
                 (close-socket socket))
                (t
-                (error "Unexpected error (Code: ~D)" errno))))
+                (vom:error "Unexpected error (Code: ~D)" errno)
+                (close-socket socket))))
            (return))
           (0
            ;; EOF
@@ -152,7 +153,7 @@
                    (= errno wsys:EPROTO)
                    (= errno wsys:EINTR)))
               (t
-               (error "Can't accept connection (Code: ~D)" errno)))))
+               (vom:error "Can't accept connection (Code: ~D)" errno)))))
       (otherwise
        #-linux (set-fd-nonblock client-fd t)
 
