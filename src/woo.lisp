@@ -217,6 +217,7 @@
                                                       (start-tcp-server :sockopt wsock:+SO-REUSEPORT+))
                                                 (format t "Worker started: ~A~%" (wsys:getpid)))
                                               (progn
+                                                (push pid *child-worker-pids*)
                                                 (unless (zerop (decf times))
                                                   (go forking))
                                                 (setq *listener*
