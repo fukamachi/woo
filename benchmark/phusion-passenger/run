@@ -1,0 +1,5 @@
+#!/bin/sh
+
+BASEDIR=$(dirname $0)
+WORKER=${1:-1}
+exec passenger start -e production -R "$BASEDIR/../unicorn/app.ru" --max-pool-size "$WORKER" --min-instances "$WORKER"

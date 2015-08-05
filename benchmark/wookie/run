@@ -1,0 +1,21 @@
+#|-*- mode:lisp -*-|#
+#|
+exec ros -Q -- $0 "$@"
+|#
+
+;;
+;; http://localhost:5000/
+
+(ql:quickload :wookie :silent t)
+
+(defpackage :wookie-test
+    (:use :cl :wookie))
+(in-package :wookie-test)
+
+(defroute (:get "/") (req res)
+  (send-response res :body "Hello, World"))
+
+(defun main (&rest argv)
+  (declare (ignore argv))
+  (as:with-event-loop (:catch-app-errors t)
+    (start-server (make-instance 'listener :port 5000))))

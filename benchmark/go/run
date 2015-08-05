@@ -1,0 +1,7 @@
+#!/bin/sh
+
+BASEDIR=$(dirname $0)
+WORKER=${1:-1}
+
+go build -o "$BASEDIR/hello" "$BASEDIR/hello.go"
+exec "$BASEDIR/hello" --worker "$WORKER"

@@ -1,10 +1,10 @@
 package main
 
-// go build benchmark/hello.go
-
 import (
 	"fmt"
 	"net/http"
+	"runtime"
+	"flag"
 )
 
 func hello(w http.ResponseWriter, r *http.Request) {
@@ -12,6 +12,10 @@ func hello(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	worker := flag.Int("worker", 1, "worker count")
+	flag.Parse()
+	runtime.GOMAXPROCS(*worker)
+
 	http.HandleFunc("/", hello)
 	http.ListenAndServe(":5000", nil)
 }

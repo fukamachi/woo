@@ -1,0 +1,4 @@
+#!/bin/sh
+
+BASEDIR=$(dirname $0)
+exec unicorn -E production -c "$BASEDIR/config.rb" "$BASEDIR/app.ru"
