@@ -1,7 +1,8 @@
 (in-package :cl-user)
 (defpackage woo.llsocket
   (:nicknames :wsock)
-  (:use :cl)
+  (:use :cl
+        :split-sequence)
   (:shadow :listen)
   (:export :+AF-UNIX+
            :+AF-INET+
@@ -98,5 +99,31 @@
            :setsockopt
            :shutdown
            :socket
-           :socketpair))
+           :socketpair
+
+           :so-reuseport-available-p))
 (in-package :woo.llsocket)
+
+(defun so-reuseport-available-p ()
+  #+linux
+  (let ((kernel-version
+          (with-output-to-string (s)
+            (uiop:run-program "uname -r"
+                              :output s
+                              :ignore-error-status t))))
+    (setq kernel-version
+          (if (= 0 (length kernel-version))
+              nil
+              (subseq kernel-version 0 (1- (length kernel-version)))))
+    (when kernel-version
+      (destructuring-bind (major &optional minor)
+          (split-sequence #\. kernel-version
+                          :count 2)
+        (let ((major (parse-integer major :junk-allowed t))
+              (minor (and minor
+                          (parse-integer minor :junk-allowed t))))
+          (and major minor
+               (or (< 3 major)
+                   (and (= 3 major)
+                        (<= 9 minor))))))))
+  #-linux nil)

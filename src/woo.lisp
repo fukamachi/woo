@@ -1,8 +1,7 @@
 (in-package :cl-user)
 (defpackage woo
   (:nicknames :clack.handler.woo)
-  (:use :cl
-        :split-sequence)
+  (:use :cl)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-socket-string
@@ -17,6 +16,8 @@
                 :*evloop*
                 :socket-remote-addr
                 :socket-remote-port)
+  (:import-from :woo.llsocket
+                :so-reuseport-available-p)
   (:import-from :lev
                 :ev-loop-fork)
   (:import-from :quri
@@ -61,31 +62,6 @@
 
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
-
-#+linux
-(defun so-reuseport-available-p ()
-  (let ((kernel-version
-          (with-output-to-string (s)
-            (uiop:run-program "uname -r"
-                              :output s
-                              :ignore-error-status t))))
-    (setq kernel-version
-          (if (= 0 (length kernel-version))
-              nil
-              (subseq kernel-version 0 (1- (length kernel-version)))))
-    (when kernel-version
-      (destructuring-bind (major &optional minor)
-          (split-sequence #\. kernel-version
-                          :count 2)
-        (let ((major (parse-integer major :junk-allowed t))
-              (minor (and minor
-                          (parse-integer minor :junk-allowed t))))
-          (and major minor
-               (or (< 3 major)
-                   (and (= 3 major)
-                        (<= 9 minor)))))))))
-#-linux
-(defun so-reuseport-available-p () nil)
 
 (defparameter *listener* nil)
 (defvar *child-worker-pids* '())
