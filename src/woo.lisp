@@ -145,6 +145,12 @@
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
+  (assert (or (and (integerp worker-num)
+                   (< 0 worker-num))
+              (null worker-num)))
+
+  (when (eql 1 worker-num)
+    (setf worker-num nil))
 
   (setq *listener* nil
         *child-worker-pids* '())
