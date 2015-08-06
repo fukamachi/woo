@@ -287,6 +287,34 @@ Requests/sec:  14069.35
 Transfer/sec:      1.73MB
 ```
 
+### Hunchentoot (multi-threaded-taskmaster)
+
+```
+$ benchmark/run-benchmark benchmark/hunchentoot/run true
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     1.41ms    3.68ms  42.62ms   95.47%
+    Req/Sec     2.65k   306.72     2.93k    77.75%
+  105501 requests in 10.00s, 15.80MB read
+Requests/sec:  10548.24
+Transfer/sec:      1.58MB
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    18.65ms   57.01ms 991.35ms   94.55%
+    Req/Sec     2.57k     0.95k    6.34k    74.39%
+  97717 requests in 10.07s, 14.63MB read
+Requests/sec:   9703.66
+Transfer/sec:      1.45MB
+```
+
 ### Unicorn + nginx (Ruby, worker_processes=4)
 
 nginx's worker\_processes=4

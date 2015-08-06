@@ -12,9 +12,12 @@ exec ros -Q -- $0 "$@"
   (setf (hunchentoot:content-type*) "text/plain")
   "Hello, World")
 
-(defun main (&rest argv)
+(defun main (&optional multi-threaded-p &rest argv)
   (declare (ignore argv))
-  (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor
-                                    :port 5000
-                                    :taskmaster (make-instance 'hunchentoot:single-threaded-taskmaster)
-                                    :access-log-destination nil)))
+  (hunchentoot:start (apply #'make-instance 'hunchentoot:easy-acceptor
+                            :port 5000
+                            :access-log-destination nil
+                            (if multi-threaded-p
+                                '()
+                                (list :taskmaster (make-instance 'hunchentoot:single-threaded-taskmaster)))))
+  (loop (sleep 60)))
