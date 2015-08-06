@@ -75,233 +75,216 @@ wrk -c [10 or 100] -t 4 -d 10 http://127.0.0.1:5000
 
 The benchmarking environment is:
 
-* MacBook Pro Retina, 13-inch, Early 2013 (CPU: 3GHz Intel Core i7 / Memory: 8GB 1600 MHz)
-* wrk 3.1.1
-* SBCL 1.2.6
-* Python 2.7.8
-* PyPy 2.4.0
-* Go 1.3.3
-* Tornado 4.0.2
-* Ruby 2.1.1p76
-* Unicorn 4.8.3
-* Phusion Passenger 5.0.0.beta2
-* Node.js 0.10.21
-* Quicklisp 2014-11-06
-* libevent 2.1.4-alpha (HEAD)
+* Sakura VPS 4GB (CPU: 4 Core / Memory: 4GB)
+* wrk 4.0.0
+* nginx 1.4.6
+* Python 2.7.6
+* PyPy 2.6.0
+* Tornado 4.2.1
+* Quicklisp 2015-08-04
+* SBCL 1.2.14
+* Node.js 0.12.7
+* Go 1.2.1
+* Ruby 2.1.6p336
+* Unicorn 4.9.0
+* libuv 1.7.0
 * libev 4.15
-* nginx 1.6.2
+
+### Wookie (Common Lisp)
+
+```
+$ benchmark/run-benchmark benchmark/wookie/run
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     5.91ms    5.18ms  70.90ms   95.25%
+    Req/Sec   376.95     91.68   540.00     61.25%
+  15020 requests in 10.01s, 1.09MB read
+Requests/sec:   1500.30
+Transfer/sec:    111.35KB
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    70.19ms   16.91ms 217.79ms   88.88%
+    Req/Sec   362.65    123.18   505.00     57.83%
+  14363 requests in 10.03s, 1.04MB read
+Requests/sec:   1432.61
+Transfer/sec:    106.33KB
+```
 
 ### Tornado (Python)
 
 ```
-$ python benchmark/hello.py
+$ benchmark/run-benchmark python benchmark/tornado/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     2.83ms  218.41us   6.63ms   96.11%
-    Req/Sec   735.93     83.69     0.89k    80.07%
-  28223 requests in 10.00s, 5.57MB read
-Requests/sec:   2822.09
-Transfer/sec:    570.48KB
+    Latency     4.82ms  191.20us  14.61ms   99.16%
+    Req/Sec   415.18      9.05   430.00     75.00%
+  16536 requests in 10.01s, 3.26MB read
+Requests/sec:   1651.40
+Transfer/sec:    333.83KB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    39.14ms    1.02ms  45.78ms   73.21%
-    Req/Sec   641.91     37.37   825.00     82.48%
-  25504 requests in 10.01s, 5.03MB read
-Requests/sec:   2548.72
-Transfer/sec:    515.22KB
+    Latency    61.80ms    4.28ms 116.16ms   97.59%
+    Req/Sec   404.76     67.47   505.00     67.50%
+  16132 requests in 10.01s, 3.18MB read
+Requests/sec:   1611.14
+Transfer/sec:    325.69KB
 ```
 
 ### Hunchentoot (Common Lisp)
 
 ```
-$ sbcl --load benchmark/hunchentoot.lisp
+$ benchmark/run-benchmark benchmark/hunchentoot/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   144.00us   97.95us   4.76ms   99.85%
-    Req/Sec     6.81k   509.00     7.22k    97.05%
-  63978 requests in 10.01s, 9.58MB read
-  Socket errors: connect 0, read 0, write 0, timeout 34
-Requests/sec:   6390.08
-Transfer/sec:      0.96MB
+    Latency     3.87ms    9.71ms 154.74ms   98.20%
+    Req/Sec   660.48     64.27   727.00     88.64%
+  26122 requests in 10.01s, 4.38MB read
+Requests/sec:   2609.58
+Transfer/sec:    448.52KB
 ```
 
 ```
-wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.24ms    2.45ms   5.19ms   61.52%
-    Req/Sec     6.83k   556.53     7.89k    93.36%
-  64140 requests in 10.01s, 9.60MB read
-  Socket errors: connect 0, read 161, write 0, timeout 387
-Requests/sec:   6406.92
-Transfer/sec:      0.96MB
+    Latency    39.67ms  103.29ms   1.64s    94.34%
+    Req/Sec   517.47    339.19     1.27k    59.05%
+  11368 requests in 10.03s, 1.91MB read
+  Socket errors: connect 0, read 0, write 0, timeout 55
+Requests/sec:   1133.89
+Transfer/sec:    194.89KB
 ```
 
 ### Tornado (PyPy)
 
 ```
-$ pypy benchmark/hello.py
+$ benchmark/run-benchmark pypy benchmark/tornado/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     4.21ms    8.64ms  30.26ms   90.41%
-    Req/Sec     1.80k     1.11k    3.67k    56.02%
-  67132 requests in 10.00s, 13.25MB read
-Requests/sec:   6712.27
-Transfer/sec:      1.33MB
+    Latency     1.73ms    2.98ms  55.99ms   98.95%
+    Req/Sec     1.33k   112.68     1.44k    94.25%
+  52836 requests in 10.01s, 10.43MB read
+Requests/sec:   5275.79
+Transfer/sec:      1.04MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    16.08ms    8.16ms  40.17ms   89.97%
-    Req/Sec     1.60k   311.97     2.16k    63.06%
-  62962 requests in 10.01s, 12.43MB read
-Requests/sec:   6292.83
-Transfer/sec:      1.24MB
-```
-
-### Wookie (Common Lisp)
-
-```
-$ sbcl --load benchmark/wookie.lisp
-```
-
-```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
-Running 10s test @ http://127.0.0.1:5000
-  4 threads and 10 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.25ms    3.35ms  52.53ms   99.16%
-    Req/Sec     1.99k   227.28     2.33k    78.41%
-  75538 requests in 10.00s, 8.28MB read
-Requests/sec:   7554.20
-Transfer/sec:    848.37KB
-```
-
-```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
-Running 10s test @ http://127.0.0.1:5000
-  4 threads and 100 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    13.15ms    1.89ms  25.52ms   85.12%
-    Req/Sec     1.94k   349.30     2.59k    64.35%
-  76227 requests in 10.01s, 8.36MB read
-Requests/sec:   7618.58
-Transfer/sec:    855.60KB
+    Latency    21.02ms    7.82ms 160.93ms   95.65%
+    Req/Sec     1.23k   181.03     1.50k    85.50%
+  48891 requests in 10.02s, 9.65MB read
+Requests/sec:   4881.21
+Transfer/sec:      0.96MB
 ```
 
 ### Node.js http module
 
 ```
-$ node benchmark/node.js
+$ benchmark/run-benchmark benchmark/node/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   558.17us   57.01us   4.02ms   95.83%
-    Req/Sec     3.73k   213.97     4.11k    63.56%
-  141101 requests in 10.00s, 17.49MB read
-Requests/sec:  14110.16
-Transfer/sec:      1.75MB
+    Latency     1.54ms  327.61us  10.80ms   98.03%
+    Req/Sec     1.29k    46.27     1.57k    80.00%
+  51339 requests in 10.02s, 6.36MB read
+Requests/sec:   5126.11
+Transfer/sec:    650.78KB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     7.71ms    0.91ms  26.78ms   93.24%
-    Req/Sec     3.37k   366.65     4.53k    74.85%
-  130057 requests in 10.00s, 16.12MB read
-Requests/sec:  13003.58
-Transfer/sec:      1.61MB
+    Latency    19.31ms    1.51ms  52.07ms   94.96%
+    Req/Sec     1.30k    77.19     1.50k    89.75%
+  51705 requests in 10.02s, 6.41MB read
+Requests/sec:   5159.70
+Transfer/sec:    655.04KB
 ```
 
 ### Woo (Common Lisp)
 
 ```
-$ sbcl --load benchmark/woo.lisp
+$ benchmark/run-benchmark benchmark/woo/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   304.78us  435.89us  10.34ms   99.56%
-    Req/Sec     7.06k     1.33k    9.89k    74.84%
-  267269 requests in 10.00s, 33.65MB read
-Requests/sec:  26728.29
-Transfer/sec:      3.36MB
+    Latency   811.53us    0.86ms  19.20ms   98.94%
+    Req/Sec     2.57k   144.70     3.35k    89.58%
+  102945 requests in 10.10s, 12.76MB read
+Requests/sec:  10192.36
+Transfer/sec:      1.26MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.83ms    1.35ms  23.13ms   95.43%
-    Req/Sec     7.02k     1.03k    8.33k    82.96%
-  266506 requests in 10.00s, 33.55MB read
-Requests/sec:  26649.52
-Transfer/sec:      3.35MB
+    Latency     9.29ms    7.86ms 236.64ms   98.21%
+    Req/Sec     2.86k   326.20     4.99k    90.30%
+  114613 requests in 10.10s, 14.21MB read
+Requests/sec:  11347.52
+Transfer/sec:      1.41MB
 ```
 
 ### Go
 
 ```
-$ go build benchmark/hello.go
-$ ./hello
+$ benchmark/run-benchmark benchmark/go/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   274.14us  142.62us   0.92ms   57.60%
-    Req/Sec     7.47k     0.96k   10.60k    64.57%
-  282965 requests in 10.00s, 34.81MB read
-Requests/sec:  28298.26
-Transfer/sec:      3.48MB
+    Latency   571.26us  779.80us  30.60ms   98.69%
+    Req/Sec     3.52k   332.38     7.98k    82.04%
+  140357 requests in 10.10s, 17.27MB read
+Requests/sec:  13898.15
+Transfer/sec:      1.71MB
 ```
 
 ```
-wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.72ms  742.47us   6.22ms   62.44%
-    Req/Sec     7.09k   568.00     9.00k    65.49%
-  269210 requests in 10.00s, 33.12MB read
-Requests/sec:  26922.81
-Transfer/sec:      3.31MB
+    Latency     7.20ms    4.12ms  76.59ms   70.88%
+    Req/Sec     3.54k   244.72     4.27k    77.75%
+  140821 requests in 10.01s, 17.32MB read
+Requests/sec:  14069.35
+Transfer/sec:      1.73MB
 ```
 
 ### Unicorn + nginx (Ruby, worker_processes=4)
@@ -310,153 +293,114 @@ nginx's worker\_processes=4
 Unicorn's worker\_processes=4
 
 ```
-$ unicorn -E production -c benchmark/unicorn/config.rb benchmark/unicorn/app.ru
+$ sudo nginx -c benchmark/unicorn/nginx.conf
+$ benchmark/run-benchmark benchmark/unicorn/run
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.56ms    9.56ms 108.21ms   98.77%
-    Req/Sec     4.09k     1.40k    9.22k    74.49%
-  153585 requests in 10.00s, 24.45MB read
-Requests/sec:  15361.96
-Transfer/sec:      2.45MB
+    Latency   775.04us  499.01us  13.46ms   89.84%
+    Req/Sec     2.50k   408.49     3.88k    66.75%
+  100194 requests in 10.10s, 16.81MB read
+Requests/sec:   9921.11
+Transfer/sec:      1.66MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     6.60ms    4.55ms 137.92ms   89.16%
-    Req/Sec     3.96k   657.47    11.31k    81.94%
-  152428 requests in 10.00s, 24.27MB read
-Requests/sec:  15243.51
-Transfer/sec:      2.43MB
+    Latency     6.07ms    3.86ms 129.13ms   91.73%
+    Req/Sec     4.04k   502.40     5.89k    69.00%
+  161881 requests in 10.10s, 27.16MB read
+Requests/sec:  16031.95
+Transfer/sec:      2.69MB
 ```
 
 ### Node.js http module (4 cluster)
 
 ```
-$ node benchmark/node-cluster.js
+$ benchmark/run-benchmark benchmark/node/run 4
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   334.44us  570.21us  19.06ms   90.08%
-    Req/Sec     7.46k     5.29k   20.44k    63.69%
-  280336 requests in 10.00s, 34.76MB read
-Requests/sec:  28035.25
-Transfer/sec:      3.48MB
+    Latency   645.16us  411.18us  14.90ms   90.71%
+    Req/Sec     3.01k   685.94     5.38k    61.69%
+  120393 requests in 10.10s, 14.93MB read
+Requests/sec:  11920.05
+Transfer/sec:      1.48MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.85ms    5.98ms 108.27ms   95.20%
-    Req/Sec     7.73k     2.65k   31.56k    74.38%
-  285013 requests in 10.00s, 35.34MB read
-Requests/sec:  28498.97
-Transfer/sec:      3.53MB
+    Latency     8.15ms    4.40ms 149.51ms   98.43%
+    Req/Sec     3.15k   121.25     3.38k    80.00%
+  125509 requests in 10.01s, 15.56MB read
+Requests/sec:  12540.72
+Transfer/sec:      1.55MB
 ```
 
 ### Woo (Common Lisp, worker-num=4)
 
 ```
-$ sbcl --load benchmark/woo-cluster.lisp
+$ benchmark/run-benchmark benchmark/woo/run 4
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.08ms   12.66ms 184.39ms   99.53%
-    Req/Sec     9.86k     2.25k   15.00k    68.51%
-  373207 requests in 10.00s, 46.98MB read
-Requests/sec:  37323.22
-Transfer/sec:      4.70MB
+    Latency   502.66us  741.70us  22.38ms   99.37%
+    Req/Sec     4.01k   397.81     4.57k    57.92%
+  161072 requests in 10.10s, 19.97MB read
+Requests/sec:  15948.20
+Transfer/sec:      1.98MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     2.86ms    9.19ms 126.45ms   96.01%
-    Req/Sec    13.39k     6.71k   45.78k    67.70%
-  504881 requests in 10.00s, 63.56MB read
-Requests/sec:  50505.20
-Transfer/sec:      6.36MB
+    Latency     4.73ms    4.73ms 103.79ms   96.50%
+    Req/Sec     5.79k   340.65     7.68k    76.50%
+  230976 requests in 10.03s, 28.64MB read
+Requests/sec:  23037.57
+Transfer/sec:      2.86MB
 ```
 
 ### Go (GOMAXPROCS=4)
 
 ```
-$ go build benchmark/hello-maxproc.go
-$ ./hello-maxproc
+$ benchmark/run-benchmark benchmark/go/run 4
 ```
 
 ```
-$ wrk -c 10 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   141.53us  140.85us   8.08ms   95.00%
-    Req/Sec    13.50k     3.15k   24.44k    71.60%
-  510975 requests in 10.00s, 62.86MB read
-Requests/sec:  51101.54
-Transfer/sec:      6.29MB
+    Latency   501.25us    0.98ms  19.31ms   96.17%
+    Req/Sec     4.43k   531.76     6.43k    68.50%
+  176648 requests in 10.02s, 21.73MB read
+Requests/sec:  17636.86
+Transfer/sec:      2.17MB
 ```
 
 ```
-$ wrk -c 100 -t 4 -d 10 http://127.0.0.1:5000
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.75ms    1.58ms  35.92ms   95.40%
-    Req/Sec    15.55k     5.36k   62.67k    82.92%
-  583243 requests in 10.00s, 71.75MB read
-Requests/sec:  58336.29
-Transfer/sec:      7.18MB
-```
-
-### Phusion Passenger (Ruby)
-
-```
-$ passenger start -e production -R benchmark/unicorn/app.ru --max-pool-size 4 --min-instances 4
-```
-
-```
-wrk -c 10 -t 4 -d 10 http://127.0.0.1:3000
-Running 10s test @ http://127.0.0.1:3000
-  4 threads and 10 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   177.00us    1.10ms  45.88ms   99.64%
-    Req/Sec    13.87k     3.06k   27.00k    80.29%
-  526936 requests in 10.00s, 79.90MB read
-Requests/sec:  52696.83
-Transfer/sec:      7.99MB
-```
-
-```
-wrk -c 100 -t 4 -d 10 http://127.0.0.1:3000
-Running 10s test @ http://127.0.0.1:3000
-  4 threads and 100 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.42ms    1.85ms  64.67ms   98.36%
-    Req/Sec    15.60k     3.55k   47.00k    62.83%
-  590815 requests in 10.00s, 89.59MB read
-  Socket errors: connect 0, read 0, write 0, timeout 48
-Requests/sec:  59085.92
-Transfer/sec:      8.96MB
+    Latency     3.92ms    3.88ms  43.80ms   86.79%
+    Req/Sec     6.98k     0.97k   10.55k    69.95%
+  278553 requests in 10.05s, 34.27MB read
+Requests/sec:  27722.19
+Transfer/sec:      3.41MB
 ```
 
 ## Installation
@@ -466,17 +410,9 @@ Woo has switched the backend from cl-async to libev after the latest Quicklisp d
 ### Requirements
 
 * UNIX (GNU Linux, Mac, *BSD)
-* SBCL 1.2.6
+* SBCL
 * Quicklisp
 * [libev](http://libev.schmorp.de)
-
-### Cloning
-
-```
-$ cd ~/common-lisp
-$ git clone https://github.com/fukamachi/lev
-$ git clone https://github.com/fukamachi/woo
-```
 
 ### Loading
 
