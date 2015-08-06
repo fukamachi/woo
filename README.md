@@ -76,6 +76,7 @@ wrk -c [10 or 100] -t 4 -d 10 http://127.0.0.1:5000
 The benchmarking environment is:
 
 * Sakura VPS 4GB (CPU: 4 Core / Memory: 4GB)
+* Ubuntu 14.04.3 LTS (GNU/Linux 3.13.0-61-generic x86_64)
 * wrk 4.0.0
 * nginx 1.4.6
 * Python 2.7.6
