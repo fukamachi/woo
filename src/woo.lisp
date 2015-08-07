@@ -88,11 +88,7 @@
            (lev:ev-signal-start *evloop* (aref watchers i))))
 
 (defun stop-signal-watchers (watchers)
-  (map nil
-       (lambda (watcher)
-         (lev:ev-signal-stop (lev:ev-default-loop 0) watcher)
-         (cffi:foreign-free watcher))
-       watchers))
+  (map nil #'cffi:foreign-free watchers))
 
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
