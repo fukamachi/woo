@@ -16,7 +16,7 @@
 #-quicklisp (asdf:load-system :cffi-grovel)
 
 (defsystem woo
-  :version "0.0.1"
+  :version "0.9.0"
   :author "Eitaro Fukamachi"
   :license "MIT"
   :defsystem-depends-on (:cffi-grovel)
