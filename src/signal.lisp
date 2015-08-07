@@ -5,7 +5,8 @@
                 :*listener*
                 :child-worker-pids)
   (:export :sigint-cb
-           :sigquit-cb))
+           :sigquit-cb
+           :sigchld-cb))
 (in-package :woo.signal)
 
 (cffi:defcallback sigquit-cb :void ((evloop :pointer) (signal :pointer) (events :int))
@@ -60,3 +61,12 @@
   (sb-ext:exit)
   #-sbcl
   (cl-user::quit))
+
+(cffi:defcallback sigchld-cb :void ((evloop :pointer) (signal :pointer) (events :int))
+  (declare (ignore signal events))
+  (format t "~&[~D] SIGCHILD~%" (wsys:getpid))
+  (let ((pid #+sbcl (sb-posix:fork)
+             #-sbcl (wsys:fork)))
+    (if (zerop pid)
+        (format t "Worker started: ~A~%" (wsys:getpid))
+        (push pid (child-worker-pids)))))

@@ -15,7 +15,8 @@
                 :child-worker-pids)
   (:import-from :woo.signal
                 :sigint-cb
-                :sigquit-cb)
+                :sigquit-cb
+                :sigchld-cb)
   (:import-from :woo.ev
                 :*buffer-size*
                 :*connection-timeout*
@@ -71,7 +72,8 @@
 
 (defvar *signals*
   `((2 . sigint-cb)
-    (3 . sigquit-cb)))
+    (3 . sigquit-cb)
+    (20 . sigchld-cb)))
 
 (defun make-signal-watchers ()
   (let* ((watcher-count (length *signals*))
