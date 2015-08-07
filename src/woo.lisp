@@ -129,6 +129,7 @@
                                                    #-sbcl (wsys:fork)))
                                           (if (zerop pid)
                                               (progn
+                                                (setf (child-worker-pids) nil)
                                                 (lev:ev-loop-fork wev:*evloop*)
                                                 (format t "Worker started: ~A~%" (wsys:getpid)))
                                               (progn
@@ -148,6 +149,7 @@
                                                    #-sbcl (wsys:fork)))
                                           (if (zerop pid)
                                               (progn
+                                                (setf (child-worker-pids) nil)
                                                 (lev:ev-loop-fork wev:*evloop*)
                                                 (setq *listener*
                                                       (start-tcp-server :sockopt wsock:+SO-REUSEPORT+))
