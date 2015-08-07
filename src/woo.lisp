@@ -87,7 +87,7 @@
   (loop for (sig . cb) in *signals*
         for i from 0
         do (lev:ev-signal-init (aref watchers i) cb sig)
-           (lev:ev-signal-start *evloop* (aref watchers i))))
+           (lev:ev-signal-start (lev:ev-default-loop 0) (aref watchers i))))
 
 (defun stop-signal-watchers (watchers)
   (map nil #'cffi:foreign-free watchers))
