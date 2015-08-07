@@ -37,9 +37,11 @@
                #+linux :uiop)
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("ev" "response"))
+                ((:file "woo" :depends-on ("ev" "response" "multiprocess" "signal"))
                  (:file "response" :depends-on ("ev"))
                  (:file "ev" :depends-on ("ev-packages"))
+                 (:file "multiprocess")
+                 (:file "signal" :depends-on ("multiprocess" "ev" "syscall"))
                  (:module "ev-packages"
                   :pathname "ev"
                   :depends-on ("syscall" "llsocket")

@@ -10,6 +10,12 @@
                 :write-response-headers
                 :write-body-chunk
                 :finish-response)
+  (:import-from :woo.multiprocess
+                :*listener*
+                :child-worker-pids)
+  (:import-from :woo.signal
+                :sigint-cb
+                :sigquit-cb)
   (:import-from :woo.ev
                 :*buffer-size*
                 :*connection-timeout*
@@ -63,75 +69,23 @@
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
-(defparameter *listener* nil)
-(defvar *child-worker-pids* '())
-
-(cffi:defcallback sigquit-cb :void ((evloop :pointer) (signal :pointer) (events :int))
-  (declare (ignore signal events))
-  (format t "~&[~D] Stopping a server...~%" (wsys:getpid))
-
-  ;; Stop accepting new clients.
-  (lev:ev-io-stop evloop *listener*)
-
-  ;; Stop child processes.
-  (dolist (pid *child-worker-pids*)
-    (wsys:kill pid 3))
-  (setq *child-worker-pids* '())
-
-  ;; Wait until all requests are served or passed 10 sec.
-  (loop
-    repeat 100
-    until (= (hash-table-count wev:*data-registry*) 0)
-    do (sleep 0.1))
-
-  ;; Close existing all sockets.
-  (maphash (lambda (fd socket)
-             (vom:warn "Force closing a socket (fd=~D) in ~D." fd (wsys:getpid))
-             (wev:close-socket socket))
-           wev:*data-registry*)
-
-  ;; Stop all events.
-  (lev:ev-break evloop lev:+EVBREAK-ALL+)
-
-  (format t "~&[~D] Bye.~%" (wsys:getpid))
-
-  #+sbcl
-  (sb-ext:exit)
-  #-sbcl
-  (cl-user::quit))
-
-(cffi:defcallback sigint-cb :void ((evloop :pointer) (signal :pointer) (events :int))
-  (declare (ignore signal events))
-  (format t "~&[~D] Stopping a server immediately...~%" (wsys:getpid))
-
-  ;; Stop all events.
-  (lev:ev-break evloop lev:+EVBREAK-ALL+)
-
-  ;; Stop child processes.
-  (dolist (pid *child-worker-pids*)
-    (wsys:kill pid 2))
-  (setq *child-worker-pids* '())
-
-  (format t "~&[~D] Bye.~%" (wsys:getpid))
-
-  #+sbcl
-  (sb-ext:exit)
-  #-sbcl
-  (cl-user::quit))
+(defvar *signals*
+  `((2 . sigint-cb)
+    (3 . sigquit-cb)))
 
 (defun make-signal-watchers ()
-  (make-array 2
-              :element-type 'cffi:foreign-pointer
-              :initial-contents (list (cffi:foreign-alloc '(:struct lev:ev-signal))
-                                      (cffi:foreign-alloc '(:struct lev:ev-signal)))))
+  (let* ((watcher-count (length *signals*))
+         (watchers
+           (make-array watcher-count
+                       :element-type 'cffi:foreign-pointer)))
+    (dotimes (i watcher-count watchers)
+      (setf (aref watchers i) (cffi:foreign-alloc '(:struct lev:ev-signal))))))
 
 (defun start-signal-watchers (watchers)
-  (lev:ev-signal-init (aref watchers 0) 'sigint-cb 2)
-  (lev:ev-signal-init (aref watchers 1) 'sigquit-cb 3)
-  (map nil
-       (lambda (watcher)
-         (lev:ev-signal-start *evloop* watcher))
-       watchers))
+  (loop for (sig . cb) in *signals*
+        for i from 0
+        do (lev:ev-signal-init (aref watchers i) cb sig)
+           (lev:ev-signal-start *evloop* (aref watchers i))))
 
 (defun stop-signal-watchers (watchers)
   (map nil
@@ -152,8 +106,8 @@
   (when (eql 1 worker-num)
     (setf worker-num nil))
 
-  (setq *listener* nil
-        *child-worker-pids* '())
+  (setf *listener* nil
+        (child-worker-pids) '())
 
   (let ((*app* app)
         (*debug* debug))
@@ -178,7 +132,7 @@
                                                 (lev:ev-loop-fork wev:*evloop*)
                                                 (format t "Worker started: ~A~%" (wsys:getpid)))
                                               (progn
-                                                (push pid *child-worker-pids*)
+                                                (push pid (child-worker-pids))
                                                 (unless (zerop (decf times))
                                                   (go forking))
                                                 (format t "Worker started: ~A~%" (wsys:getpid))))))))
@@ -199,7 +153,7 @@
                                                       (start-tcp-server :sockopt wsock:+SO-REUSEPORT+))
                                                 (format t "Worker started: ~A~%" (wsys:getpid)))
                                               (progn
-                                                (push pid *child-worker-pids*)
+                                                (push pid (child-worker-pids))
                                                 (unless (zerop (decf times))
                                                   (go forking))
                                                 (setq *listener*
