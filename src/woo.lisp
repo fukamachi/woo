@@ -410,3 +410,13 @@
              (write-socket-crlf socket))
            (write-socket-crlf socket)
            (wev:write-socket-data socket body)))))))
+
+(defmethod clack.socket:set-read-callback (socket callback)
+  (setf (wev:socket-data socket) callback))
+
+(defmethod clack.socket:write-to-socket (socket message &key callback)
+  (wev:with-async-writing (socket :write-cb (and callback
+                                                 (lambda (socket)
+                                                   (declare (ignore socket))
+                                                   (funcall callback))))
+    (wev:write-socket-data socket message)))

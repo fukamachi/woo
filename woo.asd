@@ -21,6 +21,7 @@
   :license "MIT"
   :defsystem-depends-on (:cffi-grovel)
   :depends-on (:lev
+               :clack-socket
                :swap-bytes
                :cffi
                :static-vectors
