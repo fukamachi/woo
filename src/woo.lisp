@@ -411,12 +411,22 @@
            (write-socket-crlf socket)
            (wev:write-socket-data socket body)))))))
 
-(defmethod clack.socket:set-read-callback (socket callback)
+(defmethod clack.socket:set-read-callback ((socket woo.ev.socket:socket) callback)
   (setf (wev:socket-data socket) callback))
 
-(defmethod clack.socket:write-to-socket (socket message &key callback)
+(defmethod clack.socket:write-to-socket ((socket woo.ev.socket:socket) message &key callback)
   (wev:with-async-writing (socket :write-cb (and callback
                                                  (lambda (socket)
                                                    (declare (ignore socket))
                                                    (funcall callback))))
     (wev:write-socket-data socket message)))
+
+(defmethod clack.socket:write-to-socket-buffer ((socket woo.ev.socket:socket) message)
+  (wev:write-socket-data socket message))
+
+(defmethod clack.socket:flush-socket-buffer ((socket woo.ev.socket:socket) &key callback)
+  (wev:with-async-writing (socket :write-cb (and callback
+                                                 (lambda (socket)
+                                                   (declare (ignore socket))
+                                                   (funcall callback))))
+    nil))
