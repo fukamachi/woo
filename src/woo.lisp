@@ -414,15 +414,25 @@
 (defmethod clack.socket:set-read-callback ((socket woo.ev.socket:socket) callback)
   (setf (wev:socket-data socket) callback))
 
-(defmethod clack.socket:write-to-socket ((socket woo.ev.socket:socket) message &key callback)
+(defmethod clack.socket:write-sequence-to-socket ((socket woo.ev.socket:socket) data &key callback)
   (wev:with-async-writing (socket :write-cb (and callback
                                                  (lambda (socket)
                                                    (declare (ignore socket))
                                                    (funcall callback))))
-    (wev:write-socket-data socket message)))
+    (wev:write-socket-data socket data)))
 
-(defmethod clack.socket:write-to-socket-buffer ((socket woo.ev.socket:socket) message)
-  (wev:write-socket-data socket message))
+(defmethod clack.socket:write-byte-to-socket ((socket woo.ev.socket:socket) byte &key callback)
+  (wev:with-async-writing (socket :write-cb (and callback
+                                                 (lambda (socket)
+                                                   (declare (ignore socket))
+                                                   (funcall callback))))
+    (wev:write-socket-byte socket byte)))
+
+(defmethod clack.socket:write-sequence-to-socket-buffer ((socket woo.ev.socket:socket) data)
+  (wev:write-socket-data socket data))
+
+(defmethod clack.socket:write-byte-to-socket-buffer ((socket woo.ev.socket:socket) byte)
+  (wev:write-socket-byte socket byte))
 
 (defmethod clack.socket:flush-socket-buffer ((socket woo.ev.socket:socket) &key callback)
   (wev:with-async-writing (socket :write-cb (and callback

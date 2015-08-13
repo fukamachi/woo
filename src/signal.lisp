@@ -63,7 +63,7 @@
   (cl-user::quit))
 
 (cffi:defcallback sigchld-cb :void ((evloop :pointer) (signal :pointer) (events :int))
-  (declare (ignore signal events))
+  (declare (ignore evloop signal events))
   (format t "~&[~D] SIGCHILD~%" (wsys:getpid))
   (let ((pid #+sbcl (sb-posix:fork)
              #-sbcl (wsys:fork)))
