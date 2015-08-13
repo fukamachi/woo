@@ -442,4 +442,5 @@
     nil))
 
 (defmethod clack.socket:close-socket ((socket woo.ev.socket:socket))
-  (woo.ev.socket:close-socket socket))
+  (when (woo.ev.socket:socket-open-p socket)
+    (woo.ev.socket:close-socket socket)))
