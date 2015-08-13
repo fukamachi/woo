@@ -440,3 +440,6 @@
                                                    (declare (ignore socket))
                                                    (funcall callback))))
     nil))
+
+(defmethod clack.socket:close-socket ((socket woo.ev.socket:socket))
+  (woo.ev.socket:close-socket socket))
