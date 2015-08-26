@@ -40,7 +40,7 @@
   (optlen :int))
 
 (cffi:defcfun ("inet_ntoa" inet-ntoa) :string
-  (addr :int))
+  (addr :int64))
 
 (cffi:defcfun ("listen" listen) :int
   (socket :int)
