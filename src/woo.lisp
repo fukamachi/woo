@@ -315,6 +315,25 @@
     (wev:tcp-error (e)
       (vom:error (princ-to-string e)))))
 
+#+sbcl
+(defvar *stat* (make-instance 'sb-posix:stat))
+#+sbcl
+(defun fd-file-size (fd)
+  (sb-posix:fstat fd *stat*)
+  (sb-posix:stat-size *stat*))
+#+ccl
+(defun fd-file-size (fd)
+  (multiple-value-bind (successp mode size)
+      (ccl::%fstat fd)
+    (declare (ignore mode))
+    (unless successp
+      (error ""))
+    size))
+#-(or sbcl ccl)
+(defun file-size (path)
+  (with-open-file (in path)
+    (file-length in)))
+
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
         (close (or (= (http-minor-version http) 0)
@@ -342,24 +361,16 @@
                                                           (wev:close-socket socket))))
            (write-response-headers socket status headers (not close))))
         (pathname
-         (let ((chunked-response-p (null (getf headers :content-length))))
-           (when chunked-response-p
-             (setf (getf headers :transfer-encoding) "chunked"))
+         (let* ((fd (wsys:open body))
+                (size #+(or sbcl ccl) (fd-file-size fd)
+                      #-(or sbcl ccl) (file-size body)))
+           (unless (getf headers :content-length)
+             (setf (getf headers :content-length) size))
            (wev:with-async-writing (socket :write-cb (and close
                                                           (lambda (socket)
                                                             (wev:close-socket socket))))
              (write-response-headers socket status headers (not close))
-             (let ((buffer (make-array 4096 :element-type '(unsigned-byte 8)))
-                   (write-fn (if chunked-response-p
-                                 #'write-body-chunk
-                                 #'wev:write-socket-data)))
-               (with-open-file (in body :direction :input :element-type '(unsigned-byte 8))
-                 (loop
-                   for n = (read-sequence buffer in)
-                   until (zerop n)
-                   do (funcall write-fn socket buffer :end n)))
-               (when chunked-response-p
-                 (wev:write-socket-data socket *empty-chunk*))))))
+             (woo.ev.socket:send-static-file socket fd size))))
         (list
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)

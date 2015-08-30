@@ -53,6 +53,7 @@
            :write-socket-byte
            :flush-buffer
            :with-async-writing
+           :send-static-file
            :close-socket))
 (in-package :woo.ev.socket)
 
@@ -73,7 +74,14 @@
   (write-cb nil :type (or null function))
   (open-p t :type boolean)
 
-  (buffer (make-output-buffer)))
+  (buffer (make-output-buffer))
+  (sendfile-fd nil :type (or null fixnum))
+  (sendfile-size nil :type (or null integer))
+  (sendfile-offset 0 :type (or null integer)))
+
+(defun buffer-empty-p (socket)
+  (declare (optimize (speed 3) (safety 0) (debug 0)))
+  (= (the fixnum (fast-io::output-buffer-len (socket-buffer socket))) 0))
 
 (defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
   (let ((socket (apply #'%make-socket initargs)))
@@ -119,6 +127,10 @@
         (socket-write-cb socket) nil
         (socket-buffer socket) nil
         (socket-data socket) nil)
+  (let ((sendfile-fd (socket-sendfile-fd socket)))
+    (when sendfile-fd
+      (wsys:close sendfile-fd)
+      (setf (socket-sendfile-fd socket) nil)))
   t)
 
 (defun check-socket-open (socket)
@@ -152,14 +164,11 @@
   (declare (optimize speed))
   (check-socket-open socket)
   (let ((data (finish-output-buffer (socket-buffer socket)))
-        (fd (socket-fd socket))
-        (write-cb (socket-write-cb socket)))
+        (fd (socket-fd socket)))
     (declare (type (simple-array (unsigned-byte 8) (*)) data))
     (cffi:with-pointer-to-vector-data (data-sap data)
-      (let ((nwrote 0)
-            (len (length data))
+      (let ((len (length data))
             (completedp nil))
-        (declare (dynamic-extent nwrote))
         (let ((n (wsys:write fd data-sap len)))
           (declare (dynamic-extent n))
           (case n
@@ -180,25 +189,50 @@
                     (error "Unexpected error (Code: ~D)" errno))))))
             (otherwise
              (setf (socket-last-activity socket) (lev:ev-now *evloop*))
-             (incf nwrote n)
-             (if (= nwrote len)
+             (if (= n len)
                  (setq completedp t)
                  (progn
                    (reset-buffer socket)
                    (fast-write-sequence data
                                         (socket-buffer socket)
                                         n))))))
-        (when completedp
-          (when write-cb
-            (funcall (the function write-cb) socket))
-          ;; Need to check if 'socket' is still open because it may be closed in write-cb.
-          (when (socket-open-p socket)
-            (setf (socket-write-cb socket) nil)
-            (reset-buffer socket)))
         completedp))))
 
+(defun send-file (socket)
+  (declare (optimize speed))
+  (let* ((infd (socket-sendfile-fd socket))
+         (offset (socket-sendfile-offset socket))
+         (n (wsys:sendfile infd (socket-fd socket) offset
+                           (socket-sendfile-size socket))))
+    (declare (type fixnum n))
+    (cond
+      ((= n -1)
+       (let ((errno (wsys:errno)))
+         (declare (type fixnum errno))
+         (return-from send-file
+           (cond
+             ((or (= errno wsys:EWOULDBLOCK)
+                  (= errno wsys:EINTR))
+              nil)
+             ((or (= errno wsys:ECONNABORTED)
+                  (= errno wsys:ECONNREFUSED))
+              (vom:error "Connection is already closed (Code: ~D)" errno)
+              (close-socket socket)
+              t)
+             (t
+              (error "Unexpected error (Code: ~D)" errno))))))
+      (t
+       (setf (socket-last-activity socket) (lev:ev-now *evloop*))
+       (let ((completedp (= (socket-sendfile-size socket)
+                            (incf (socket-sendfile-offset socket) n))))
+         (when completedp
+           (wsys:close infd)
+           (setf (socket-sendfile-fd socket) nil))
+         completedp)))))
+
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
-  (declare (ignore events))
+  (declare (optimize speed)
+           (ignore events))
   (let* ((fd (io-fd io))
          (socket (deref-data-from-pointer fd)))
     (unless socket
@@ -206,13 +240,31 @@
       (cffi:foreign-free io)
       (return-from async-write-cb))
 
-    (let ((completedp (flush-buffer socket)))
-      (when (and completedp
-                 (socket-open-p socket))
-        (lev:ev-io-stop evloop io)))))
+    ;; Send from buffer
+    (unless (buffer-empty-p socket)
+      (unless (flush-buffer socket)
+        (return-from async-write-cb)))
+    ;; Send a static file?
+    (when (socket-sendfile-fd socket)
+      (unless (send-file socket)
+        (return-from async-write-cb)))
+
+    ;; Transfer has been completed.
+    (when (socket-write-cb socket)
+      (funcall (the function (socket-write-cb socket)) socket))
+    ;; Need to check if 'socket' is still open because it may be closed in write-cb.
+    (when (socket-open-p socket)
+      (setf (socket-write-cb socket) nil)
+      (reset-buffer socket)
+      (lev:ev-io-stop evloop io))))
 
 (defmacro with-async-writing ((socket &key write-cb) &body body)
   `(progn
      ,@body
      (setf (socket-write-cb ,socket) ,write-cb)
      (lev:ev-io-start *evloop* (socket-write-watcher ,socket))))
+
+(defun send-static-file (socket fd size)
+  (with-slots (sendfile-fd sendfile-size) socket
+    (setf sendfile-fd fd
+          sendfile-size size)))

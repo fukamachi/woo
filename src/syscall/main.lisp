@@ -1,5 +1,14 @@
 (in-package :woo.syscall)
 
+(defcfun (%open "open") :int
+  (path :string)
+  (flags :int)
+  (mode mode-t))
+
+(defun open (path &optional (flags +O-RDONLY+) (mode #o666))
+  (check-type mode fixnum)
+  (%open (cffi-sys:native-namestring (translate-logical-pathname path)) flags mode))
+
 (defcfun ("close") :int
   (fd :int))
 
@@ -73,3 +82,50 @@
 (defcfun (getpid "getpid") pid-t)
 
 (defcfun (getppid "getppid") pid-t)
+
+#+linux
+(defcfun (%sendfile "sendfile") ssize-t
+  (infd   :int)
+  (outfd  :int)
+  (offset :pointer)
+  (nbytes size-t))
+#+darwin
+(defcfun (%sendfile "sendfile") ssize-t
+  (outfd  :int)
+  (infd   :int)
+  (offset off-t)
+  (len :pointer)
+  (hdtr :pointer)
+  (flags :int))
+#+freebsd
+(defcfun (%sendfile "sendfile") ssize-t
+  (infd   :int)
+  (outfd  :int)
+  (offset off-t)
+  (nbytes size-t)
+  (hdtr :pointer)
+  (sbytes :pointer)
+  (flags :int))
+
+(defun sendfile (infd outfd offset nbytes)
+  #+linux
+  (cffi:with-foreign-object (off 'off-t)
+    (setf (cffi:mem-aref off 'off-t) offset)
+    (%sendfile outfd infd off nbytes))
+  #+darwin
+  (cffi:with-foreign-object (len 'off-t)
+    (setf (cffi:mem-aref len 'off-t) nbytes)
+    (let ((retval (%sendfile infd outfd offset len (cffi:null-pointer) 0)))
+      (declare (type fixnum retval))
+      (if (= retval -1)
+          -1
+          (cffi:mem-aref len 'off-t))))
+  #+freebsd
+  (cffi:with-foreign-slots (sbytes 'off-t)
+    (let ((retval (%sendfile infd outfd offset nbytes (cffi:null-pointer) sbytes +SF-MNOWAIT+)))
+      (declare (type fixnum retval))
+      (if (= retval -1)
+          -1
+          (cffi:mem-aref sbytes 'off-t))))
+  #-(or linux darwin freebsd)
+  (error "sendfile is not supported"))

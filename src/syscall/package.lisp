@@ -4,7 +4,8 @@
   (:use :cl)
   (:shadow :close
            :write
-           :read)
+           :read
+           :open)
   (:import-from :cffi
                 :defcfun)
   (:export :close
@@ -26,5 +27,8 @@
            :errno
 
            :getpid
-           :getppid))
+           :getppid
+
+           :sendfile
+           :open))
 (in-package :woo.syscall)
