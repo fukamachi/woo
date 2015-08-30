@@ -8,7 +8,7 @@ os:
 env:
   global:
     - PATH=~/.roswell/bin:$PATH
-    - ROSWELL_BRANCH=release
+    - ROSWELL_BRANCH=master
     - ROSWELL_INSTALL_DIR=$HOME/.roswell
   matrix:
     - LISP=sbcl-bin
