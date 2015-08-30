@@ -40,6 +40,7 @@
 (defconstant O-NONBLOCK 4.)
 
 (defconstant EWOULDBLOCK 35.)
+(defconstant EPIPE 32.)
 (defconstant EINTR 4.)
 (defconstant EPROTO 100.)
 (defconstant ECONNABORTED 53.)

@@ -14,6 +14,7 @@
            :kill
            :set-fd-nonblock
            :EWOULDBLOCK
+           :EPIPE
            :EINTR
            :EPROTO
            :ECONNABORTED
