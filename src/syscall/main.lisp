@@ -12,10 +12,10 @@
 (defcfun ("close") :int
   (fd :int))
 
-(defcfun ("write") :unsigned-int
+(defcfun ("write") ssize-t
   (fd :int)
   (buf :pointer)
-  (count :unsigned-int))
+  (count size-t))
 
 (defcfun ("read") :unsigned-int
   (fd :int)
