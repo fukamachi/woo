@@ -206,7 +206,8 @@
   (let* ((infd (socket-sendfile-fd socket))
          (offset (socket-sendfile-offset socket))
          (n (wsys:sendfile infd (socket-fd socket) offset
-                           (socket-sendfile-size socket))))
+                           (min (- (socket-sendfile-size socket) offset)
+                                (* 1024 100)))))
     (declare (type fixnum n))
     (cond
       ((= n -1)
