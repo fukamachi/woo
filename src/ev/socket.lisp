@@ -154,11 +154,12 @@
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)
   (let ((buffer (socket-buffer socket)))
-    (setf (fast-io::output-buffer-vector buffer) (fast-io::make-octet-vector fast-io:*default-output-buffer-size*)
-          (fast-io::output-buffer-fill buffer) 0
-          (fast-io::output-buffer-len buffer) 0
-          (fast-io::output-buffer-queue buffer) nil
-          (fast-io::output-buffer-last buffer) nil)))
+    (when buffer
+      (setf (fast-io::output-buffer-vector buffer) (fast-io::make-octet-vector fast-io:*default-output-buffer-size*)
+            (fast-io::output-buffer-fill buffer) 0
+            (fast-io::output-buffer-len buffer) 0
+            (fast-io::output-buffer-queue buffer) nil
+            (fast-io::output-buffer-last buffer) nil))))
 
 (defun flush-buffer (socket)
   (declare (optimize speed))
@@ -246,7 +247,8 @@
     ;; Send from buffer
     (unless (buffer-empty-p socket)
       (unless (flush-buffer socket)
-        (return-from async-write-cb)))
+        (return-from async-write-cb))
+      (reset-buffer socket))
     ;; Send a static file?
     (when (socket-sendfile-fd socket)
       (unless (send-file socket)
@@ -258,7 +260,6 @@
     ;; Need to check if 'socket' is still open because it may be closed in write-cb.
     (when (socket-open-p socket)
       (setf (socket-write-cb socket) nil)
-      (reset-buffer socket)
       (lev:ev-io-stop evloop io))))
 
 (defmacro with-async-writing ((socket &key write-cb) &body body)
