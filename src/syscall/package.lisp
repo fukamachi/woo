@@ -20,6 +20,7 @@
            :ECONNABORTED
            :ECONNREFUSED
            :ECONNRESET
+           :ENOTCONN
 
            :fork
            :memset

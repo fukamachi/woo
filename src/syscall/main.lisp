@@ -46,6 +46,7 @@
 (defconstant ECONNABORTED 53.)
 (defconstant ECONNREFUSED 61.)
 (defconstant ECONNRESET 54.)
+(defconstant ENOTCONN 57.)
 
 (defun set-fd-nonblock (fd enabled)
   (declare (optimize (speed 3) (safety 0)))
