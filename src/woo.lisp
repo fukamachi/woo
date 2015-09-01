@@ -327,7 +327,7 @@
       (ccl::%fstat fd)
     (declare (ignore mode))
     (unless successp
-      (error ""))
+      (error "'fstat' failed"))
     size))
 #-(or sbcl ccl)
 (defun file-size (path)
