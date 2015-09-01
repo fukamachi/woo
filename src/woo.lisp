@@ -359,6 +359,7 @@
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
                                                           (wev:close-socket socket))))
+           (setf (getf headers :content-length) 0)
            (write-response-headers socket status headers (not close))))
         (pathname
          (let* ((fd (wsys:open body))
