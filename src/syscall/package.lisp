@@ -4,7 +4,8 @@
   (:use :cl)
   (:shadow :close
            :write
-           :read)
+           :read
+           :open)
   (:import-from :cffi
                 :defcfun)
   (:export :close
@@ -13,11 +14,13 @@
            :kill
            :set-fd-nonblock
            :EWOULDBLOCK
+           :EPIPE
            :EINTR
            :EPROTO
            :ECONNABORTED
            :ECONNREFUSED
            :ECONNRESET
+           :ENOTCONN
 
            :fork
            :memset
@@ -26,5 +29,8 @@
            :errno
 
            :getpid
-           :getppid))
+           :getppid
+
+           :sendfile
+           :open))
 (in-package :woo.syscall)
