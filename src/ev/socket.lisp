@@ -189,7 +189,9 @@
                     (close-socket socket)
                     t)
                    (t
-                    (error "Unexpected error (Code: ~D)" errno))))))
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket)
+                    t)))))
             (otherwise
              (setf (socket-last-activity socket) (lev:ev-now *evloop*))
              (if (= n len)
@@ -227,7 +229,9 @@
               (close-socket socket)
               t)
              (t
-              (error "Unexpected error (Code: ~D)" errno))))))
+              (vom:error "Unexpected error (Code: ~D)" errno)
+              (close-socket socket)
+              t)))))
       (t
        (setf (socket-last-activity socket) (lev:ev-now *evloop*))
        (let ((completedp (= (socket-sendfile-size socket)
