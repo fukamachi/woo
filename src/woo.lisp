@@ -10,23 +10,12 @@
                 :write-response-headers
                 :write-body-chunk
                 :finish-response)
-  (:import-from :woo.multiprocess
-                :*listener*
-                :child-worker-pids)
-  (:import-from :woo.signal
-                :sigint-cb
-                :sigquit-cb
-                :sigchld-cb)
   (:import-from :woo.ev
                 :*buffer-size*
                 :*connection-timeout*
                 :*evloop*
                 :socket-remote-addr
                 :socket-remote-port)
-  (:import-from :woo.llsocket
-                :so-reuseport-available-p)
-  (:import-from :lev
-                :ev-loop-fork)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -71,28 +60,7 @@
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
-(defvar *signals*
-  `((2 . sigint-cb)
-    (3 . sigquit-cb)
-    (20 . sigchld-cb)))
-
-(defun make-signal-watchers ()
-  (let* ((watcher-count (length *signals*))
-         (watchers
-           (make-array watcher-count
-                       :element-type 'cffi:foreign-pointer)))
-    (dotimes (i watcher-count watchers)
-      (setf (aref watchers i) (cffi:foreign-alloc '(:struct lev:ev-signal))))))
-
-(defun start-signal-watchers (watchers)
-  (loop for (sig . cb) in *signals*
-        for i from 0
-        do (lev:ev-signal-init (aref watchers i) cb sig)
-           (lev:ev-signal-start (lev:ev-default-loop 0) (aref watchers i))))
-
-(defun stop-signal-watchers (watchers)
-  (map nil #'cffi:foreign-free watchers))
-
+(defvar *cluster* nil)
 (defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
   (assert (and (integerp backlog)
@@ -105,82 +73,29 @@
   (when (eql 1 worker-num)
     (setf worker-num nil))
 
-  (setf *listener* nil
-        (child-worker-pids) '())
-
   (let ((*app* app)
         (*debug* debug))
-    (labels ((start-tcp-server (&key (sockopt wsock:+SO-REUSEADDR+))
-               (wev:tcp-server address port
-                               #'read-cb
-                               :connect-cb #'connect-cb
-                               :backlog backlog
-                               :fd fd
-                               :sockopt sockopt))
-             (start-multi-server ()
-               (let ((signal-watchers (make-signal-watchers)))
-                 (unwind-protect (wev:with-event-loop (:enable-fork t)
-                                   (setq *listener* (start-tcp-server))
-                                   (start-signal-watchers signal-watchers)
-                                   (let ((times (1- worker-num)))
-                                     (tagbody forking
-                                        (let ((pid #+sbcl (sb-posix:fork)
-                                                   #-sbcl (wsys:fork)))
-                                          (if (zerop pid)
-                                              (progn
-                                                (setf (child-worker-pids) nil)
-                                                (lev:ev-loop-fork wev:*evloop*)
-                                                (format t "Worker started: ~A~%" (wsys:getpid)))
-                                              (progn
-                                                (push pid (child-worker-pids))
-                                                (unless (zerop (decf times))
-                                                  (go forking))
-                                                (format t "Worker started: ~A~%" (wsys:getpid))))))))
-                   (wev:close-tcp-server *listener*)
-                   (stop-signal-watchers signal-watchers))))
-             (start-multi-server-with-reuseport ()
-               (let ((signal-watchers (make-signal-watchers)))
-                 (unwind-protect (wev:with-event-loop (:enable-fork t)
-                                   (start-signal-watchers signal-watchers)
-                                   (let ((times (1- worker-num)))
-                                     (tagbody forking
-                                        (let ((pid #+sbcl (sb-posix:fork)
-                                                   #-sbcl (wsys:fork)))
-                                          (if (zerop pid)
-                                              (progn
-                                                (setf (child-worker-pids) nil)
-                                                (lev:ev-loop-fork wev:*evloop*)
-                                                (setq *listener*
-                                                      (start-tcp-server :sockopt wsock:+SO-REUSEPORT+))
-                                                (format t "Worker started: ~A~%" (wsys:getpid)))
-                                              (progn
-                                                (push pid (child-worker-pids))
-                                                (unless (zerop (decf times))
-                                                  (go forking))
-                                                (setq *listener*
-                                                      (start-tcp-server :sockopt wsock:+SO-REUSEPORT+))
-                                                (format t "Worker started: ~A~%" (wsys:getpid))))))))
-                   (wev:close-tcp-server *listener*)
-                   (stop-signal-watchers signal-watchers))))
-
-             (start-single-server ()
-               (let ((signal-watchers (make-signal-watchers)))
-                 (unwind-protect (wev:with-event-loop ()
-                                   (setq *listener* (start-tcp-server))
-                                   (start-signal-watchers signal-watchers))
-                   (wev:close-tcp-server *listener*)
-                   (stop-signal-watchers signal-watchers)))))
-      (funcall (cond
-                 ((and worker-num
-                       (so-reuseport-available-p))
-                  #'start-multi-server-with-reuseport)
-                 (worker-num
-                  #'start-multi-server)
-                 (t
-                  #'start-single-server))))))
+    (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
+                                            (*error-output* . ,*error-output*)
+                                            (*app* . ,*app*)))
+           listener
+           (*cluster* (woo.worker:make-cluster (or worker-num 1)
+                                               (lambda (socket)
+                                                 (setup-parser socket)
+                                                 (woo.ev.tcp:start-listening-socket socket)))))
+      (unwind-protect
+           (wev:with-event-loop ()
+             (setq listener
+                   (wev:tcp-server address port
+                                   #'read-cb
+                                   :connect-cb #'connect-cb
+                                   :backlog backlog
+                                   :fd fd
+                                   :sockopt wsock:+SO-REUSEADDR+)))
+        (wev:close-tcp-server listener)))))
 
 (defun connect-cb (socket)
-  (setup-parser socket))
+  (woo.worker:add-job-to-cluster *cluster* socket))
 
 (defun read-cb (socket data &key (start 0) (end (length data)))
   (let ((parser (wev:socket-data socket)))

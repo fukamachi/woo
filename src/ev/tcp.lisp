@@ -10,6 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
+                :socket-fd
                 :socket-read-cb
                 :socket-read-watcher
                 :socket-timeout-timer
@@ -71,6 +72,7 @@
                 :split-sequence)
   (:export :tcp-server
            :close-tcp-server
+           :start-listening-socket
            :*connection-timeout*))
 (in-package :woo.ev.tcp)
 
@@ -135,7 +137,7 @@
 (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
-  (declare (ignore events))
+  (declare (ignore evloop events))
   (let* ((fd (io-fd listener))
          (client-fd #+linux (wsock:accept4 fd
                                            *dummy-sockaddr*
@@ -167,19 +169,21 @@
               (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
               (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
                         :remote-addr remote-addr :remote-port remote-port)))
-         (setf (deref-data-from-pointer client-fd) socket)
          (let* ((callbacks (callbacks fd))
                 (read-cb (getf callbacks :read-cb))
                 (connect-cb (getf callbacks :connect-cb)))
-           (when connect-cb
-             (funcall (the function connect-cb) socket))
            (when read-cb
-             (setf (socket-read-cb socket) read-cb)))
-         (lev:ev-io-start evloop (socket-read-watcher socket))
-         (let ((timer (socket-timeout-timer socket)))
-           (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
-           (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
-           (timeout-cb evloop timer lev:+EV-TIMER+)))))))
+             (setf (socket-read-cb socket) read-cb))
+           (when connect-cb
+             (funcall (the function connect-cb) socket))))))))
+
+(defun start-listening-socket (socket)
+  (setf (deref-data-from-pointer (socket-fd socket)) socket)
+  (lev:ev-io-start *evloop* (socket-read-watcher socket))
+  (let ((timer (socket-timeout-timer socket)))
+    (lev:ev-timer-init timer 'timeout-cb *connection-timeout* 0.0d0)
+    (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
+    (timeout-cb *evloop* timer lev:+EV-TIMER+)))
 
 (defun vector-to-integer (vector)
   "Convert a vector to a 32-bit unsigned integer."
