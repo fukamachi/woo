@@ -92,7 +92,8 @@
                                    :backlog backlog
                                    :fd fd
                                    :sockopt wsock:+SO-REUSEADDR+)))
-        (wev:close-tcp-server listener)))))
+        (wev:close-tcp-server listener)
+        (woo.worker:stop-cluster *cluster*)))))
 
 (defun connect-cb (socket)
   (woo.worker:add-job-to-cluster *cluster* socket))

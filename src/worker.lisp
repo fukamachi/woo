@@ -4,22 +4,33 @@
   (:import-from :woo.ev
                 :*evloop*)
   (:export :make-cluster
+           :stop-cluster
            :add-job-to-cluster))
 (in-package :woo.worker)
 
 (defparameter *worker* nil)
 
-(defstruct (worker (:constructor %make-worker (queue evloop async process-fn)))
-  queue
+(defstruct worker
+  (queue (sb-concurrency:make-queue))
   evloop
-  async
+  dequeue-async
+  stop-async
   process-fn)
 
 (defun add-job (worker job)
   (sb-concurrency:enqueue job (worker-queue worker)))
 
 (defun notify-new-job (worker)
-  (lev:ev-async-send (worker-evloop worker) (worker-async worker)))
+  (lev:ev-async-send (worker-evloop worker) (worker-dequeue-async worker)))
+
+(defun stop-worker (worker)
+  (with-slots (evloop dequeue-async stop-async) worker
+    (lev:ev-async-send evloop stop-async)
+    (cffi:foreign-free dequeue-async)
+    (cffi:foreign-free stop-async)
+    (setf evloop nil
+          dequeue-async nil
+          stop-async nil)))
 
 (cffi:defcallback worker-dequeue :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop listener events))
@@ -28,23 +39,52 @@
         while socket
         do (funcall (worker-process-fn *worker*) socket)))
 
+(defparameter *timeout-retry* nil)
+(cffi:defcallback worker-idle-checker :void ((evloop :pointer) (listener :pointer) (events :int))
+  (declare (ignore events))
+  (if (or (= (hash-table-count wev:*data-registry*) 0)
+          (= (decf *timeout-retry*) -1))
+      (progn
+        ;; Close existing all sockets.
+        (maphash (lambda (fd socket)
+                   (vom:warn "Force closing a socket (fd=~D)." fd)
+                   (wev:close-socket socket))
+                 wev:*data-registry*)
+
+        ;; Stop all events.
+        (lev:ev-break evloop lev:+EVBREAK-ALL+))
+      (lev:ev-timer-again evloop listener)))
+
+(defvar *stop-idle-timer* nil)
+(cffi:defcallback worker-stop :void ((evloop :pointer) (listener :pointer) (events :int))
+  (declare (ignore listener events))
+
+  ;; Wait until all requests are served or passed 10 sec.
+  (let ((*timeout-retry* 10))
+    (lev:ev-timer-init *stop-idle-timer* 'worker-idle-checker 1.0d0 0.0d0)
+    (lev:ev-timer-start evloop *stop-idle-timer*)))
+
 (defun make-worker-thread (process-fn)
-  (let (worker
-        (worker-lock (bt:make-lock)))
+  (let* ((dequeue-async (cffi:foreign-alloc '(:struct lev:ev-async))) 
+         (stop-async (cffi:foreign-alloc '(:struct lev:ev-async)))
+         (worker (make-worker :dequeue-async dequeue-async
+                              :stop-async stop-async
+                              :process-fn process-fn))
+         (worker-lock (bt:make-lock)))
     (bt:make-thread
      (lambda ()
        (bt:acquire-lock worker-lock)
-       (let ((*worker* nil)
-             (queue (sb-concurrency:make-queue))
-             (async (cffi:foreign-alloc '(:struct lev:ev-async))))
+       (let ((*worker* worker)
+             (*stop-idle-timer*  (cffi:foreign-alloc '(:struct lev:ev-timer))))
          (unwind-protect
               (wev:with-event-loop ()
-                (setf worker (%make-worker queue *evloop* async process-fn))
+                (setf (worker-evloop worker) *evloop*)
                 (bt:release-lock worker-lock)
-                (setf *worker* worker)
-                (lev:ev-async-init async 'worker-dequeue)
-                (lev:ev-async-start *evloop* async))
-           (cffi:foreign-free async))))
+                (lev:ev-async-init dequeue-async 'worker-dequeue)
+                (lev:ev-async-start *evloop* dequeue-async)
+                (lev:ev-async-init stop-async 'worker-stop)
+                (lev:ev-async-start *evloop* stop-async))
+           (cffi:foreign-free *stop-idle-timer*))))
      :name "woo-worker")
     (sleep 0.1)
     (bt:acquire-lock worker-lock)
@@ -69,5 +109,11 @@
     (setf (cdr (last workers)) workers)
     (%make-cluster workers)))
 
-(defun terminate-cluster (cluster)
-  (cluster-workers cluster))
+(defun stop-cluster (cluster)
+  (let ((hash (make-hash-table :test 'eq)))
+    (loop for worker in (cluster-workers cluster)
+          if (gethash worker hash)
+            do (return)
+          else
+            do (setf (gethash worker hash) t)
+               (stop-worker worker))))
