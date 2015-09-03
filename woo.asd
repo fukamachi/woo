@@ -36,13 +36,15 @@
                :split-sequence
                #+sbcl :sb-posix
                #+linux :uiop
-               :sb-concurrency)
+               #+sbcl :sb-concurrency
+               #-sbcl :cl-speedy-queue)
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response" "worker"))
                  (:file "response" :depends-on ("ev"))
                  (:file "ev" :depends-on ("ev-packages"))
-                 (:file "worker" :depends-on ("ev"))
+                 (:file "worker" :depends-on ("ev" "queue"))
+                 (:file "queue")
                  (:module "ev-packages"
                   :pathname "ev"
                   :depends-on ("syscall" "llsocket")

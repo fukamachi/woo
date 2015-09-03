@@ -3,6 +3,11 @@
   (:use :cl)
   (:import-from :woo.ev
                 :*evloop*)
+  (:import-from :woo.queue
+                :make-queue
+                :queue-empty-p
+                :enqueue
+                :dequeue)
   (:export :make-cluster
            :stop-cluster
            :add-job-to-cluster))
@@ -11,14 +16,14 @@
 (defparameter *worker* nil)
 
 (defstruct worker
-  (queue (sb-concurrency:make-queue))
+  (queue (make-queue))
   evloop
   dequeue-async
   stop-async
   process-fn)
 
 (defun add-job (worker job)
-  (sb-concurrency:enqueue job (worker-queue worker)))
+  (enqueue job (worker-queue worker)))
 
 (defun notify-new-job (worker)
   (lev:ev-async-send (worker-evloop worker) (worker-dequeue-async worker)))
@@ -34,9 +39,9 @@
 
 (cffi:defcallback worker-dequeue :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop listener events))
-  (loop with queue of-type sb-concurrency:queue = (worker-queue *worker*)
-        for socket = (sb-concurrency:dequeue queue)
-        while socket
+  (loop with queue = (worker-queue *worker*)
+        until (queue-empty-p queue)
+        for socket = (dequeue queue)
         do (funcall (worker-process-fn *worker*) socket)))
 
 (defparameter *timeout-retry* nil)
@@ -71,6 +76,8 @@
                               :stop-async stop-async
                               :process-fn process-fn))
          (worker-lock (bt:make-lock)))
+    (lev:ev-async-init dequeue-async 'worker-dequeue)
+    (lev:ev-async-init stop-async 'worker-stop)
     (bt:make-thread
      (lambda ()
        (bt:acquire-lock worker-lock)
@@ -80,9 +87,7 @@
               (wev:with-event-loop ()
                 (setf (worker-evloop worker) *evloop*)
                 (bt:release-lock worker-lock)
-                (lev:ev-async-init dequeue-async 'worker-dequeue)
                 (lev:ev-async-start *evloop* dequeue-async)
-                (lev:ev-async-init stop-async 'worker-stop)
                 (lev:ev-async-start *evloop* stop-async))
            (cffi:foreign-free *stop-idle-timer*))))
      :name "woo-worker")
