@@ -70,33 +70,44 @@
                    (< 0 worker-num))
               (null worker-num)))
 
-  (when (eql 1 worker-num)
-    (setf worker-num nil))
-
   (let ((*app* app)
-        (*debug* debug))
-    (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
-                                            (*error-output* . ,*error-output*)
-                                            (*app* . ,*app*)))
-           listener
-           (*cluster* (woo.worker:make-cluster (or worker-num 1)
-                                               (lambda (socket)
-                                                 (setup-parser socket)
-                                                 (woo.ev.tcp:start-listening-socket socket)))))
-      (unwind-protect
-           (wev:with-event-loop ()
-             (setq listener
-                   (wev:tcp-server address port
-                                   #'read-cb
-                                   :connect-cb #'connect-cb
-                                   :backlog backlog
-                                   :fd fd
-                                   :sockopt wsock:+SO-REUSEADDR+)))
-        (wev:close-tcp-server listener)
-        (woo.worker:stop-cluster *cluster*)))))
-
-(defun connect-cb (socket)
-  (woo.worker:add-job-to-cluster *cluster* socket))
+        (*debug* debug)
+        listener)
+    (labels ((start-socket (socket)
+               (setup-parser socket)
+               (woo.ev.tcp:start-listening-socket socket))
+             (start-multithread-server ()
+               (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
+                                                       (*error-output* . ,*error-output*)
+                                                       (*app* . ,*app*)))
+                      (*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
+                 (unwind-protect
+                      (wev:with-event-loop ()
+                        (setq listener
+                              (wev:tcp-server address port
+                                              #'read-cb
+                                              :connect-cb
+                                              (lambda (socket)
+                                                (woo.worker:add-job-to-cluster *cluster* socket))
+                                              :backlog backlog
+                                              :fd fd
+                                              :sockopt wsock:+SO-REUSEADDR+)))
+                   (wev:close-tcp-server listener)
+                   (woo.worker:stop-cluster *cluster*))))
+             (start-singlethread-server ()
+               (unwind-protect
+                    (wev:with-event-loop ()
+                      (setq listener
+                            (wev:tcp-server address port
+                                            #'read-cb
+                                            :connect-cb #'start-socket
+                                            :backlog backlog
+                                            :fd fd
+                                            :sockopt wsock:+SO-REUSEADDR+)))
+                 (wev:close-tcp-server listener))))
+      (if worker-num
+          (start-multithread-server)
+          (start-singlethread-server)))))
 
 (defun read-cb (socket data &key (start 0) (end (length data)))
   (let ((parser (wev:socket-data socket)))
