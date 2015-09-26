@@ -64,6 +64,7 @@
 
            :sockaddr
            :sockaddr-in
+           :sockaddr-un
 
            :+MSG-OOB+
            :+MSG-PEEK+

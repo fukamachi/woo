@@ -93,7 +93,10 @@
 (defun stop-signal-watchers (watchers)
   (map nil #'cffi:foreign-free watchers))
 
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
+(defun run (app &key (debug t)
+                  (port 5000) (address "0.0.0.0")
+                  listen ;; UNIX domain socket
+                  (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
   (assert (and (integerp backlog)
                (plusp backlog)
@@ -101,6 +104,7 @@
   (assert (or (and (integerp worker-num)
                    (< 0 worker-num))
               (null worker-num)))
+  (check-type listen (or pathname null))
 
   (when (eql 1 worker-num)
     (setf worker-num nil))
@@ -111,7 +115,8 @@
   (let ((*app* app)
         (*debug* debug))
     (labels ((start-tcp-server (&key (sockopt wsock:+SO-REUSEADDR+))
-               (wev:tcp-server address port
+               (wev:tcp-server (or listen
+                                   (cons address port))
                                #'read-cb
                                :connect-cb #'connect-cb
                                :backlog backlog
