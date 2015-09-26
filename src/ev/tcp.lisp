@@ -261,7 +261,8 @@
                  -1)
           (error 'os-error
                  :description (format nil "Cannot bind fd to ~S" path)
-                 :code (wsys:errno)))))
+                 :code (wsys:errno)))
+        (wsys:chmod path #o777)))
     (wsock:listen fd backlog)
     fd))
 

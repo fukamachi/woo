@@ -35,6 +35,10 @@
   (pid :int)
   (sig :int))
 
+(defcfun ("chmod" chmod) :int
+  (path :string)
+  (mode mode-t))
+
 (defconstant F-GETFL 3.)
 (defconstant F-SETFL 4.)
 (defconstant O-NONBLOCK 4.)
