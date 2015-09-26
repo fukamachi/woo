@@ -104,7 +104,12 @@
   (assert (or (and (integerp worker-num)
                    (< 0 worker-num))
               (null worker-num)))
-  (check-type listen (or pathname null))
+  (when listen
+    (when (stringp listen)
+      (unless (probe-file listen)
+        (error "'~A' doesn't exist." listen))
+      (setf listen (pathname listen)))
+    (check-type listen (or pathname null)))
 
   (when (eql 1 worker-num)
     (setf worker-num nil))
