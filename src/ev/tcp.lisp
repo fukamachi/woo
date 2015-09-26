@@ -245,6 +245,8 @@
         (error 'os-error
                :description "Cannot set socket option"
                :code (wsys:errno))))
+    (when (probe-file path)
+      (delete-file path))
     (let ((path (namestring path)))
       ;; TODO: check if the path is too long
       (cffi:with-foreign-object (sun '(:struct wsock:sockaddr-in))
