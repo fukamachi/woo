@@ -249,7 +249,7 @@
       (delete-file path))
     (let ((path (namestring path)))
       ;; TODO: check if the path is too long
-      (cffi:with-foreign-object (sun '(:struct wsock:sockaddr-in))
+      (cffi:with-foreign-object (sun '(:struct wsock:sockaddr-un))
         (setf (cffi:foreign-slot-value sun '(:struct wsock:sockaddr-un) 'wsock::family)
               wsock:+AF-UNIX+)
         (let ((sun-name-ptr (cffi:foreign-slot-pointer sun '(:struct wsock:sockaddr-un) 'wsock::path)))
