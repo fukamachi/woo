@@ -276,6 +276,10 @@
      (lev:ev-io-start *evloop* (socket-write-watcher ,socket))))
 
 (defun send-static-file (socket fd size)
-  (with-slots (sendfile-fd sendfile-size) socket
+  (with-slots (sendfile-fd sendfile-size sendfile-offset) socket
+    (when sendfile-fd
+      (warn "Trying to send another file while sending a file.")
+      (wsys:close sendfile-fd))
     (setf sendfile-fd fd
-          sendfile-size size)))
+          sendfile-size size
+          sendfile-offset 0)))
