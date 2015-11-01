@@ -127,7 +127,7 @@
           -1
           (cffi:mem-aref len 'off-t))))
   #+freebsd
-  (cffi:with-foreign-slots (sbytes 'off-t)
+  (cffi:with-foreign-object (sbytes 'off-t)
     (let ((retval (%sendfile infd outfd offset nbytes (cffi:null-pointer) sbytes +SF-MNOWAIT+)))
       (declare (type fixnum retval))
       (if (= retval -1)
