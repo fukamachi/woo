@@ -57,7 +57,8 @@
                  wev:*data-registry*)
 
         ;; Stop all events.
-        (lev:ev-break evloop lev:+EVBREAK-ALL+))
+        (lev:ev-break evloop lev:+EVBREAK-ALL+)
+        (setf *timeout-retry* nil))
       (lev:ev-timer-again evloop listener)))
 
 (defvar *stop-idle-timer* nil)
@@ -65,12 +66,13 @@
   (declare (ignore listener events))
 
   ;; Wait until all requests are served or passed 10 sec.
-  (let ((*timeout-retry* 10))
-    (lev:ev-timer-init *stop-idle-timer* 'worker-idle-checker 1.0d0 0.0d0)
-    (lev:ev-timer-start evloop *stop-idle-timer*)))
+  (unless *timeout-retry*
+    (setf *timeout-retry* 10))
+  (lev:ev-timer-init *stop-idle-timer* 'worker-idle-checker 1.0d0 0.0d0)
+  (lev:ev-timer-start evloop *stop-idle-timer*))
 
 (defun make-worker-thread (process-fn)
-  (let* ((dequeue-async (cffi:foreign-alloc '(:struct lev:ev-async))) 
+  (let* ((dequeue-async (cffi:foreign-alloc '(:struct lev:ev-async)))
          (stop-async (cffi:foreign-alloc '(:struct lev:ev-async)))
          (worker (make-worker :dequeue-async dequeue-async
                               :stop-async stop-async
