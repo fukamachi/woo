@@ -102,6 +102,12 @@
   (port "sin_port" :type in-port-t)
   (addr "sin_addr" :type in-addr-t))
 
+(include "sys/un.h")
+
+(cstruct sockaddr-un "struct sockaddr_un"
+  (family "sun_family" :type sa-family-t)
+  (path   "sun_path" :type :char))
+
 ;; Message headers
 (constant (+MSG-OOB+ "MSG_OOB"))
 (constant (+MSG-PEEK+ "MSG_PEEK"))

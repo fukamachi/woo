@@ -198,39 +198,78 @@
        (split-sequence #\. address)))
 
 (defun listen-on (address port &key (backlog 128) sockopt)
-  (cffi:with-foreign-object (sin '(:struct wsock:sockaddr-in))
-    (wsys:bzero sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
-    (cffi:with-foreign-slots ((wsock::family wsock::addr wsock::port) sin (:struct wsock:sockaddr-in))
-      (setf wsock::family wsock:+AF-INET+
-            wsock::addr (htonl (vector-to-integer (address-to-vector address)))
-            wsock::port (htons (or port 0))))
-    (let ((fd (wsock:socket wsock:+AF-INET+ wsock:+SOCK-STREAM+ 0)))
-      (when (= fd -1)
+  (let ((fd (wsock:socket wsock:+AF-INET+ wsock:+SOCK-STREAM+ 0)))
+    (when (= fd -1)
+      (error 'os-error
+             :description "Cannot create listening socket"
+             :code (wsys:errno)))
+    (let ((res (wsys:set-fd-nonblock fd t)))
+      (when (= res -1)
         (error 'os-error
-               :description "Cannot create listening socket"
-               :code (wsys:errno)))
-      (let ((res (wsys:set-fd-nonblock fd t)))
-        (when (= res -1)
-          (error 'os-error
-                 :description "Cannot set fd nonblock"
-                 :code (wsys:errno))))
-      (cffi:with-foreign-object (on :int)
-        (setf (cffi:mem-aref on :int) 1)
-        (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
-          (error 'os-error
-                 :description "Cannot set socket option"
-                 :code (wsys:errno))))
+               :description "Cannot set fd nonblock"
+               :code (wsys:errno))))
+    (cffi:with-foreign-object (on :int)
+      (setf (cffi:mem-aref on :int) 1)
+      (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
+        (error 'os-error
+               :description "Cannot set socket option"
+               :code (wsys:errno))))
+    (cffi:with-foreign-object (sin '(:struct wsock:sockaddr-in))
+      (wsys:bzero sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+      (cffi:with-foreign-slots ((wsock::family wsock::addr wsock::port) sin (:struct wsock:sockaddr-in))
+        (setf wsock::family wsock:+AF-INET+
+              wsock::addr (htonl (vector-to-integer (address-to-vector address)))
+              wsock::port (htons (or port 0))))
       (when (= (wsock:bind fd sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in))) -1)
         (error 'os-error
                :description (format nil "Cannot bind fd to the address ~S" address)
-               :code (wsys:errno)))
-      (wsock:listen fd backlog)
-      fd)))
+               :code (wsys:errno))))
+    (wsock:listen fd backlog)
+    fd))
 
 (defun listen-on-fd (fd &key (backlog 128))
   (set-fd-nonblock fd t)
   (wsock:listen fd backlog)
   fd)
+
+(defun listen-on-unix (path &key (backlog 128) sockopt)
+  (let ((fd (wsock:socket wsock:+AF-UNIX+ wsock:+SOCK-STREAM+ 0)))
+    (when (= fd -1)
+      (error 'os-error
+             :description "Cannot create listening socket"
+             :code (wsys:errno)))
+    (let ((res (wsys:set-fd-nonblock fd t)))
+      (when (= res -1)
+        (error 'os-error
+               :description "Cannot set fd nonblock"
+               :code (wsys:errno))))
+    (cffi:with-foreign-object (on :int)
+      (setf (cffi:mem-aref on :int) 1)
+      (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
+        (error 'os-error
+               :description "Cannot set socket option"
+               :code (wsys:errno))))
+    (when (probe-file path)
+      (delete-file path))
+    (let ((path (namestring path)))
+      ;; TODO: check if the path is too long
+      (cffi:with-foreign-object (sun '(:struct wsock:sockaddr-un))
+        (wsys:bzero sun (cffi:foreign-type-size '(:struct wsock:sockaddr-un)))
+        (setf (cffi:foreign-slot-value sun '(:struct wsock:sockaddr-un) 'wsock::family)
+              wsock:+AF-UNIX+)
+        (let ((sun-name-ptr (cffi:foreign-slot-pointer sun '(:struct wsock:sockaddr-un) 'wsock::path)))
+          (dotimes (i (length path))
+            (setf (cffi:mem-aref sun-name-ptr :char i) (char-code (elt path i)))))
+        (when (= (wsock:bind fd sun (+ (cffi:foreign-type-size 'wsock::sa-family-t)
+                                       (length path)
+                                       1))
+                 -1)
+          (error 'os-error
+                 :description (format nil "Cannot bind fd to ~S" path)
+                 :code (wsys:errno)))
+        (wsys:chmod path #o777)))
+    (wsock:listen fd backlog)
+    fd))
 
 (defun make-listener (address port &key backlog fd sockopt)
   (let ((fd (if fd
@@ -240,12 +279,23 @@
     (lev:ev-io-init listener 'tcp-accept-cb fd lev:+EV-READ+)
     listener))
 
-(defun tcp-server (address port read-cb &key connect-cb (backlog 128) fd (sockopt wsock:+SO-REUSEADDR+))
+(defun tcp-server (address-port read-cb &key connect-cb (backlog 128) fd (sockopt wsock:+SO-REUSEADDR+))
   (check-event-loop-running)
-  (let ((listener (make-listener address port :backlog backlog :fd fd :sockopt sockopt)))
-    (lev:ev-io-start *evloop* listener)
-    (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
-    listener))
+  (etypecase address-port
+    (cons
+     (let* ((address (car address-port))
+            (port (cdr address-port))
+            (listener (make-listener address port :backlog backlog :fd fd :sockopt sockopt)))
+       (lev:ev-io-start *evloop* listener)
+       (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
+       listener))
+    (pathname
+     (let ((fd (listen-on-unix address-port :backlog backlog :sockopt sockopt))
+           (listener (cffi:foreign-alloc '(:struct lev:ev-io))))
+       (lev:ev-io-init listener 'tcp-accept-cb fd lev:+EV-READ+)
+       (lev:ev-io-start *evloop* listener)
+       (setf (callbacks (io-fd listener)) (list :read-cb read-cb :connect-cb connect-cb))
+       listener))))
 
 (defun close-tcp-server (watcher)
   (when watcher

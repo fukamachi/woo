@@ -31,17 +31,14 @@
                 :http-minor-version
                 :parsing-error
                 :fast-http-error)
-  (:import-from :fast-io
-                :make-output-buffer
-                :finish-output-buffer
-                :with-fast-output
-                :fast-write-byte)
+  (:import-from :smart-buffer
+                :make-smart-buffer
+                :write-to-buffer
+                :finalize-buffer)
   (:import-from :trivial-utf-8
                 :string-to-utf-8-bytes
                 :utf-8-bytes-to-string
                 :utf-8-byte-length)
-  (:import-from :flexi-streams
-                :make-in-memory-output-stream)
   (:import-from :alexandria
                 :hash-table-plist
                 :copy-stream
@@ -61,7 +58,10 @@
 (defvar *default-worker-num* nil)
 
 (defvar *cluster* nil)
-(defun run (app &key (debug t) (port 5000) (address "0.0.0.0") (backlog *default-backlog-size*) fd
+(defun run (app &key (debug t)
+                  (port 5000) (address "0.0.0.0")
+                  listen ;; UNIX domain socket
+                  (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))
   (assert (and (integerp backlog)
                (plusp backlog)
@@ -69,6 +69,9 @@
   (assert (or (and (integerp worker-num)
                    (< 0 worker-num))
               (null worker-num)))
+  (when (stringp listen)
+    (setf listen (pathname listen)))
+  (check-type listen (or pathname null))
 
   (let ((*app* app)
         (*debug* debug)
@@ -84,7 +87,8 @@
                  (unwind-protect
                       (wev:with-event-loop ()
                         (setq listener
-                              (wev:tcp-server address port
+                              (wev:tcp-server (or listen
+                                                  (cons address port))
                                               #'read-cb
                                               :connect-cb
                                               (lambda (socket)
@@ -98,7 +102,8 @@
                (unwind-protect
                     (wev:with-event-loop ()
                       (setq listener
-                            (wev:tcp-server address port
+                            (wev:tcp-server (or listen
+                                                (cons address port))
                                             #'read-cb
                                             :connect-cb #'start-socket
                                             :backlog backlog
@@ -137,22 +142,19 @@
 
 (defun setup-parser (socket)
   (let ((http (make-http-request))
-        (body-buffer (fast-io::make-output-buffer)))
+        (body-buffer (make-smart-buffer)))
     (setf (wev:socket-data socket)
           (make-parser http
                        :body-callback
                        (lambda (data start end)
                          (declare (type (simple-array (unsigned-byte 8) (*)) data))
-                         (do ((i start (1+ i)))
-                             ((= end i))
-                           (fast-write-byte (aref data i) body-buffer)))
+                         (write-to-buffer body-buffer data start end))
                        :finish-callback
                        (lambda ()
                          (let ((env (nconc (list :raw-body
-                                                 (flex:make-in-memory-input-stream
-                                                  (fast-io::finish-output-buffer body-buffer)))
+                                                 (finalize-buffer body-buffer))
                                            (handle-request http socket))))
-                           (setq body-buffer (fast-io::make-output-buffer))
+                           (setq body-buffer (make-smart-buffer))
                            (handle-response http socket
                                             (if *debug*
                                                 (funcall *app* env)

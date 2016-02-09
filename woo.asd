@@ -16,7 +16,7 @@
 #-quicklisp (asdf:load-system :cffi-grovel)
 
 (defsystem woo
-  :version "0.9.0"
+  :version "0.9.1"
   :author "Eitaro Fukamachi"
   :license "MIT"
   :defsystem-depends-on (:cffi-grovel)
@@ -28,8 +28,8 @@
                :fast-http
                :quri
                :fast-io
+               :smart-buffer
                :trivial-utf-8
-               :flexi-streams
                :vom
                :local-time
                :alexandria

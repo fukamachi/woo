@@ -12,6 +12,7 @@
            :write
            :read
            :kill
+           :chmod
            :set-fd-nonblock
            :EWOULDBLOCK
            :EPIPE
