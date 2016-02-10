@@ -20,16 +20,10 @@ addons:
 
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
-  - if ! $(which ros >/dev/null); then
-      curl -L https://raw.githubusercontent.com/snmsts/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh;
-    else
-      ros -e '(ql:update-all-dists :prompt nil)';
-    fi
+  - curl -L https://raw.githubusercontent.com/snmsts/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
   - ros install prove
-  - git clone https://github.com/fukamachi/clack ~/lisp/clack
-  - git clone https://github.com/fukamachi/smart-buffer ~/lisp/smart-buffer
 
 cache:
   directories:
