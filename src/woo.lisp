@@ -82,9 +82,11 @@
                  (vom:config :woo.signal :info))
                (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket))
                      (signal-watchers (make-signal-watchers)))
-                 (start-signal-watchers signal-watchers)
                  (unwind-protect
-                      (wev:with-event-loop ()
+                      (wev:with-event-loop (:cleanup-fn
+                                            (lambda ()
+                                              (stop-signal-watchers *evloop* signal-watchers)))
+                        (start-signal-watchers *evloop* signal-watchers)
                         (setq *listener*
                               (wev:tcp-server (or listen
                                                   (cons address port))
@@ -96,13 +98,14 @@
                                               :fd fd
                                               :sockopt wsock:+SO-REUSEADDR+)))
                    (wev:close-tcp-server *listener*)
-                   (woo.worker:stop-cluster *cluster*)
-                   (stop-signal-watchers signal-watchers))))
+                   (woo.worker:stop-cluster *cluster*))))
              (start-singlethread-server ()
                (let ((signal-watchers (make-signal-watchers)))
-                 (start-signal-watchers signal-watchers)
                  (unwind-protect
-                      (wev:with-event-loop ()
+                      (wev:with-event-loop (:cleanup-fn
+                                            (lambda ()
+                                              (stop-signal-watchers *evloop* signal-watchers)))
+                        (start-signal-watchers *evloop* signal-watchers)
                         (setq *listener*
                               (wev:tcp-server (or listen
                                                   (cons address port))
@@ -111,8 +114,7 @@
                                               :backlog backlog
                                               :fd fd
                                               :sockopt wsock:+SO-REUSEADDR+)))
-                   (wev:close-tcp-server *listener*)
-                   (stop-signal-watchers signal-watchers)))))
+                   (wev:close-tcp-server *listener*)))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))

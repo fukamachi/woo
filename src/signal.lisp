@@ -47,14 +47,14 @@
     (dotimes (i watcher-count watchers)
       (setf (aref watchers i) (cffi:foreign-alloc '(:struct lev:ev-signal))))))
 
-(defun start-signal-watchers (watchers)
+(defun start-signal-watchers (evloop watchers)
   (loop for (sig . cb) in *signals*
         for i from 0
         do (lev:ev-signal-init (aref watchers i) cb sig)
-           (lev:ev-signal-start (lev:ev-default-loop 0) (aref watchers i))))
+           (lev:ev-signal-start evloop (aref watchers i))))
 
-(defun stop-signal-watchers (watchers)
+(defun stop-signal-watchers (evloop watchers)
   (map nil (lambda (watcher)
-             (lev:ev-signal-stop (lev:ev-default-loop 0) watcher)
+             (lev:ev-signal-stop evloop watcher)
              (cffi:foreign-free watcher))
        watchers))

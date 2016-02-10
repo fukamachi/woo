@@ -57,7 +57,7 @@
   (when *data-registry*
     (remhash pointer (the hash-table *data-registry*))))
 
-(defmacro with-event-loop ((&key enable-fork) &body body)
+(defmacro with-event-loop ((&key enable-fork cleanup-fn) &body body)
   `(let ((*evloop* (lev:ev-loop-new (if ,enable-fork
                                         lev:+EVFLAG-FORKCHECK+
                                         0)))
@@ -72,6 +72,8 @@
                     (declare (ignore fd))
                     (funcall close-socket-fn socket))
                   *data-registry*))
+       ,@(when cleanup-fn
+           `((funcall ,cleanup-fn)))
        (free-static-vector *input-buffer*)
        (cffi:foreign-free *evloop*))))
 
