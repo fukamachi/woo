@@ -56,11 +56,6 @@
 
 (cffi:defcallback worker-stop :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore listener events))
-  ;; Wait until all requests are processed or passed 10 sec.
-  (loop repeat 100
-        until (queue-empty-p (worker-queue *worker*))
-        do (sleep 0.1))
-
   ;; Close existing all sockets.
   (maphash (lambda (fd socket)
              (wev:close-socket socket))
@@ -70,7 +65,13 @@
   (lev:ev-break evloop lev:+EVBREAK-ALL+))
 
 (defun finalize-worker (worker)
-  (with-slots (evloop dequeue-async stop-async thread status) worker
+  (with-slots (evloop queue dequeue-async stop-async thread status) worker
+    (unless (queue-empty-p queue)
+      (if *cluster*
+          (loop until (queue-empty-p queue)
+                do (add-job-to-cluster *cluster* (dequeue queue)))
+          (vom:warn "Finalizing a worker having some jobs.")))
+
     (cffi:foreign-free dequeue-async)
     (cffi:foreign-free stop-async)
     (setf evloop nil
