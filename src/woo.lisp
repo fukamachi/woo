@@ -82,7 +82,8 @@
              (start-multithread-server ()
                (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
                                                        (*error-output* . ,*error-output*)
-                                                       (*app* . ,*app*)))
+                                                       (*app* . ,*app*)
+                                                       (*debug* . ,*debug*)))
                       (*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
                  (unwind-protect
                       (wev:with-event-loop ()
