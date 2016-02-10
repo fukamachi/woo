@@ -56,6 +56,11 @@
 
 (cffi:defcallback worker-stop :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore listener events))
+  ;; Wait until all requests are processed or passed 10 sec.
+  (loop repeat 100
+        until (queue-empty-p (worker-queue *worker*))
+        do (sleep 0.1))
+
   ;; Close existing all sockets.
   (maphash (lambda (fd socket)
              (wev:close-socket socket))
