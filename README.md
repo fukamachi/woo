@@ -89,7 +89,7 @@ Woo has switched the backend from cl-async to libev after the latest Quicklisp d
 
 ## Copyright
 
-Copyright (c) 2014-2015 Eitaro Fukamachi & [contributors](https://github.com/fukamachi/woo/graphs/contributors)
+Copyright (c) 2014-2016 Eitaro Fukamachi & [contributors](https://github.com/fukamachi/woo/graphs/contributors)
 
 ## License
 
