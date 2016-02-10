@@ -1,7 +1,8 @@
 (in-package :cl-user)
 (defpackage woo
   (:nicknames :clack.handler.woo)
-  (:use :cl)
+  (:use :cl
+        :woo.specials)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-socket-string
@@ -51,9 +52,6 @@
            :*default-worker-num*))
 (in-package :woo)
 
-(defvar *app* nil)
-(defvar *debug* nil)
-
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
@@ -80,11 +78,7 @@
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
-               (let* ((bt:*default-special-bindings* `((*standard-output* . ,*standard-output*)
-                                                       (*error-output* . ,*error-output*)
-                                                       (*app* . ,*app*)
-                                                       (*debug* . ,*debug*)))
-                      (*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
+               (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
                  (unwind-protect
                       (wev:with-event-loop ()
                         (setq listener
