@@ -3,6 +3,8 @@
   (:use :cl)
   (:export :*app*
            :*debug*
+           :*listener*
+           :*cluster*
            :default-thread-bindings))
 (in-package :woo.specials)
 
@@ -13,3 +15,6 @@
     (*error-output* . ,*error-output*)
     (*app* . ,*app*)
     (*debug* . ,*debug*)))
+
+(defvar *listener* nil)
+(defvar *cluster* nil)

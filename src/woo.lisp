@@ -2,7 +2,8 @@
 (defpackage woo
   (:nicknames :clack.handler.woo)
   (:use :cl
-        :woo.specials)
+        :woo.specials
+        :woo.signal)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-socket-string
@@ -55,7 +56,6 @@
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
-(defvar *cluster* nil)
 (defun run (app &key (debug t)
                   (port 5000) (address "0.0.0.0")
                   listen ;; UNIX domain socket
@@ -73,17 +73,19 @@
 
   (let ((*app* app)
         (*debug* debug)
-        listener)
+        (*listener* nil))
     (labels ((start-socket (socket)
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
-               (unless (getf vom::*config* :woo.worker)
-                 (vom:config :woo.worker :debug))
-               (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
+               (unless (getf vom::*config* :woo.signal)
+                 (vom:config :woo.signal :info))
+               (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket))
+                     (signal-watchers (make-signal-watchers)))
+                 (start-signal-watchers signal-watchers)
                  (unwind-protect
                       (wev:with-event-loop ()
-                        (setq listener
+                        (setq *listener*
                               (wev:tcp-server (or listen
                                                   (cons address port))
                                               #'read-cb
@@ -93,20 +95,24 @@
                                               :backlog backlog
                                               :fd fd
                                               :sockopt wsock:+SO-REUSEADDR+)))
-                   (wev:close-tcp-server listener)
-                   (woo.worker:stop-cluster *cluster*))))
+                   (wev:close-tcp-server *listener*)
+                   (woo.worker:stop-cluster *cluster*)
+                   (stop-signal-watchers signal-watchers))))
              (start-singlethread-server ()
-               (unwind-protect
-                    (wev:with-event-loop ()
-                      (setq listener
-                            (wev:tcp-server (or listen
-                                                (cons address port))
-                                            #'read-cb
-                                            :connect-cb #'start-socket
-                                            :backlog backlog
-                                            :fd fd
-                                            :sockopt wsock:+SO-REUSEADDR+)))
-                 (wev:close-tcp-server listener))))
+               (let ((signal-watchers (make-signal-watchers)))
+                 (start-signal-watchers signal-watchers)
+                 (unwind-protect
+                      (wev:with-event-loop ()
+                        (setq *listener*
+                              (wev:tcp-server (or listen
+                                                  (cons address port))
+                                              #'read-cb
+                                              :connect-cb #'start-socket
+                                              :backlog backlog
+                                              :fd fd
+                                              :sockopt wsock:+SO-REUSEADDR+)))
+                   (wev:close-tcp-server *listener*)
+                   (stop-signal-watchers signal-watchers)))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))

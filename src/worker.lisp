@@ -11,6 +11,7 @@
                 :dequeue)
   (:export :make-cluster
            :stop-cluster
+           :kill-cluster
            :add-job-to-cluster))
 (in-package :woo.worker)
 
@@ -144,7 +145,6 @@
   (remove-if-not #'worker-thread (cluster-workers cluster)))
 
 (defun stop-cluster (cluster)
-  (vom:info "Terminating quiet workers...")
   (let ((workers (cluster-running-workers cluster)))
     (mapc #'stop-worker workers)
     (loop repeat 100
@@ -152,3 +152,6 @@
           do (sleep 0.1)
           finally
              (mapc #'kill-worker (cluster-running-workers cluster)))))
+
+(defun kill-cluster (cluster)
+  (mapc #'kill-worker (cluster-running-workers cluster)))
