@@ -150,7 +150,6 @@
   (remove-if-not #'worker-thread (cluster-workers cluster)))
 
 (defun stop-cluster (cluster)
-  (vom:info "Terminating quiet workers...")
   (let ((workers (cluster-running-workers cluster)))
     (mapc #'stop-worker workers)
     (loop repeat 100
@@ -160,5 +159,4 @@
              (mapc #'kill-worker (cluster-running-workers cluster)))))
 
 (defun kill-cluster (cluster)
-  (vom:info "Terminating workers immediately...")
   (mapc #'kill-worker (cluster-running-workers cluster)))
