@@ -35,13 +35,13 @@
   (lev:ev-async-send (worker-evloop worker) (worker-dequeue-async worker)))
 
 (defun stop-worker (worker)
-  (format t "~&[~D] Stopping a worker...~%" (worker-id worker))
+  (vom:debug "[~D] Stopping a worker..." (worker-id worker))
   (with-slots (evloop stop-async status) worker
     (setf status :stopping)
     (lev:ev-async-send evloop stop-async)))
 
 (defun kill-worker (worker)
-  (format t "~&[~D] Killing a worker...~%" (worker-id worker))
+  (vom:debug "[~D] Killing a worker..." (worker-id worker))
   (with-slots (status thread) worker
     (setf status :stopping)
     (bt:destroy-thread thread)))
@@ -94,17 +94,16 @@
                       (lev:ev-async-start *evloop* dequeue-async)
                       (lev:ev-async-start *evloop* stop-async))
                  (unless (eq (worker-status worker) :stopping)
-                   (format t "~&Worker ~D has died.~%" (worker-id worker))
+                   (vom:debug "[~D] Worker has died" (worker-id worker))
                    (funcall when-died worker))
                  (finalize-worker worker)
-                 (format t "~&[~D] Bye.~%" (worker-id worker)))))
+                 (vom:debug "[~D] Bye." (worker-id worker)))))
            :initial-bindings (default-thread-bindings)
            :name "woo-worker"))
     (sleep 0.1)
     (bt:acquire-lock worker-lock)
     worker))
 
-;; TODO: notify when a thread terminated
 (defstruct (cluster (:constructor %make-cluster
                         (&optional
                            workers
@@ -130,7 +129,7 @@
 (defun make-cluster (worker-num process-fn)
   (let ((cluster (%make-cluster)))
     (labels ((make-new-worker ()
-               (format t "~&Starting a new worker thread...~%")
+               (vom:debug "Starting a new worker...")
                (make-worker process-fn
                             (lambda (worker)
                               (setf (cluster-workers cluster)
@@ -145,6 +144,7 @@
   (remove-if-not #'worker-thread (cluster-workers cluster)))
 
 (defun stop-cluster (cluster)
+  (vom:info "Terminating quiet workers...")
   (let ((workers (cluster-running-workers cluster)))
     (mapc #'stop-worker workers)
     (loop repeat 100

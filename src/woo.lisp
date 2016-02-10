@@ -78,6 +78,8 @@
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
+               (unless (getf vom::*config* :woo.worker)
+                 (vom:config :woo.worker :debug))
                (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
                  (unwind-protect
                       (wev:with-event-loop ()
