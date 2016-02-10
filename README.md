@@ -54,8 +54,8 @@ See [benchmark.md](benchmark.md) for the detail.
 
 When the master process gets these signals, it kills worker processes and quits afterwards.
 
-- QUIT: graceful shutdown, waits for all requests are finished.
-- INT: shutdown immediately.
+- INT: graceful shutdown, waits for all requests are finished.
+- TERM: shutdown immediately.
 
 ## Benchmarks
 

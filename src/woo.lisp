@@ -2,8 +2,7 @@
 (defpackage woo
   (:nicknames :clack.handler.woo)
   (:use :cl
-        :woo.specials
-        :woo.signal)
+        :woo.specials)
   (:import-from :woo.response
                 :*empty-chunk*
                 :write-socket-string
@@ -56,6 +55,25 @@
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
 
+(defmacro with-handle-interrupt (int-handler &body body)
+  (let ((main (gensym "MAIN")))
+    `(flet ((,main () ,@body))
+       #+(or sbcl ccl clisp allegro ecl)
+       (handler-case
+           (let (#+ccl (ccl:*break-hook* (lambda (condition hook)
+                                           (declare (ignore hook))
+                                           (error condition))))
+             (,main))
+         (#+sbcl sb-sys:interactive-interrupt
+          #+ccl  ccl:interrupt-signal-condition
+          #+clisp system::simple-interrupt-condition
+          #+ecl ext:interactive-interrupt
+          #+allegro excl:interrupt-signal
+          ()
+           (funcall ,int-handler)))
+       #-(or sbcl ccl clisp allegro ecl)
+       (,main))))
+
 (defun run (app &key (debug t)
                   (port 5000) (address "0.0.0.0")
                   listen ;; UNIX domain socket
@@ -78,11 +96,9 @@
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
-               (unless (getf vom::*config* :woo.signal)
-                 (vom:config :woo.signal :info))
-               (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket))
-                     (signal-watchers (make-signal-watchers)))
-                 (start-signal-watchers signal-watchers)
+               (unless (getf vom::*config* :woo.worker)
+                 (vom:config :woo.worker :info))
+               (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket)))
                  (unwind-protect
                       (wev:with-event-loop ()
                         (setq *listener*
@@ -96,26 +112,23 @@
                                               :fd fd
                                               :sockopt wsock:+SO-REUSEADDR+)))
                    (wev:close-tcp-server *listener*)
-                   (woo.worker:stop-cluster *cluster*)
-                   (stop-signal-watchers signal-watchers))))
+                   (woo.worker:stop-cluster *cluster*))))
              (start-singlethread-server ()
-               (let ((signal-watchers (make-signal-watchers)))
-                 (start-signal-watchers signal-watchers)
-                 (unwind-protect
-                      (wev:with-event-loop ()
-                        (setq *listener*
-                              (wev:tcp-server (or listen
-                                                  (cons address port))
-                                              #'read-cb
-                                              :connect-cb #'start-socket
-                                              :backlog backlog
-                                              :fd fd
-                                              :sockopt wsock:+SO-REUSEADDR+)))
-                   (wev:close-tcp-server *listener*)
-                   (stop-signal-watchers signal-watchers)))))
-      (if worker-num
-          (start-multithread-server)
-          (start-singlethread-server)))))
+               (unwind-protect
+                    (wev:with-event-loop ()
+                      (setq *listener*
+                            (wev:tcp-server (or listen
+                                                (cons address port))
+                                            #'read-cb
+                                            :connect-cb #'start-socket
+                                            :backlog backlog
+                                            :fd fd
+                                            :sockopt wsock:+SO-REUSEADDR+)))
+                 (wev:close-tcp-server *listener*))))
+      (with-handle-interrupt (lambda () (format t "~&INT~%"))
+        (if worker-num
+            (start-multithread-server)
+            (start-singlethread-server))))))
 
 (defun read-cb (socket data &key (start 0) (end (length data)))
   (let ((parser (wev:socket-data socket)))
