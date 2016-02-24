@@ -145,6 +145,8 @@
     (0 :HTTP/1.0)
     (otherwise (error 'invalid-http-version))))
 
+(define-condition bad-request (condition) ())
+
 (defun setup-parser (socket)
   (let ((http (make-http-request))
         (body-buffer (make-smart-buffer)))
@@ -156,19 +158,27 @@
                          (write-to-buffer body-buffer data start end))
                        :finish-callback
                        (lambda ()
-                         (let ((env (nconc (list :raw-body
-                                                 (finalize-buffer body-buffer))
-                                           (handle-request http socket))))
-                           (setq body-buffer (make-smart-buffer))
-                           (handle-response http socket
-                                            (if *debug*
-                                                (funcall *app* env)
-                                                (if-let (res (handler-case (funcall *app* env)
-                                                               (error (error)
-                                                                 (vom:error (princ-to-string error))
-                                                                 nil)))
-                                                  res
-                                                  '(500 nil nil))))))))))
+                         (handler-case
+                             (let ((raw-body (finalize-buffer body-buffer)))
+                               (setq body-buffer (make-smart-buffer))
+                               (let ((env (nconc (list :raw-body raw-body)
+                                                 (handle-request http socket))))
+                                 (handle-response http socket
+                                                  (if *debug*
+                                                      (funcall *app* env)
+                                                      (if-let (res (handler-case (funcall *app* env)
+                                                                     (error (error)
+                                                                       (vom:error (princ-to-string error))
+                                                                       nil)))
+                                                        res
+                                                        '(500 nil nil))))))
+                           (bad-request ()
+                             (let ((body "400 Bad Request"))
+                               (handle-response http socket
+                                                `(400
+                                                  (:connection "close"
+                                                   :content-length ,(length body))
+                                                  (,body)))))))))))
 
 (defun stop (server)
   (wev:close-tcp-server server))
@@ -201,38 +211,41 @@
             (values host nil))))))
 
 (defun handle-request (http socket)
-  (let ((host (gethash "host" (http-headers http)))
-        (headers (http-headers http))
-        (uri (http-resource http)))
-    (declare (type simple-string uri))
+  (handler-case
+      (let ((host (gethash "host" (http-headers http)))
+            (headers (http-headers http))
+            (uri (http-resource http)))
+        (declare (type simple-string uri))
 
-    (multiple-value-bind (scheme userinfo hostname port path query fragment)
-        (quri:parse-uri uri)
-      (declare (ignore scheme userinfo hostname port fragment))
-      (multiple-value-bind (server-name server-port)
-          (if (stringp host)
-              (parse-host-header host)
-              (values nil nil))
-        (list :request-method (http-method http)
-              :script-name ""
-              :server-name server-name
-              :server-port (or server-port 80)
-              :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
-              :path-info (and path
-                              (handler-case (quri:url-decode path)
-                                (quri:uri-error ()
-                                  path)))
-              :query-string query
-              :url-scheme :http
-              :remote-addr (socket-remote-addr socket)
-              :remote-port (socket-remote-port socket)
-              :request-uri uri
-              :clack.streaming t
-              :clack.nonblocking t
-              :clack.io socket
-              :content-length (gethash "content-length" headers)
-              :content-type (gethash "content-type" headers)
-              :headers headers)))))
+        (multiple-value-bind (scheme userinfo hostname port path query fragment)
+            (quri:parse-uri uri)
+          (declare (ignore scheme userinfo hostname port fragment))
+          (multiple-value-bind (server-name server-port)
+              (if (stringp host)
+                  (parse-host-header host)
+                  (values nil nil))
+            (list :request-method (http-method http)
+                  :script-name ""
+                  :server-name server-name
+                  :server-port (or server-port 80)
+                  :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
+                  :path-info (and path
+                                  (handler-case (quri:url-decode path)
+                                    (quri:uri-error ()
+                                      path)))
+                  :query-string query
+                  :url-scheme :http
+                  :remote-addr (socket-remote-addr socket)
+                  :remote-port (socket-remote-port socket)
+                  :request-uri uri
+                  :clack.streaming t
+                  :clack.nonblocking t
+                  :clack.io socket
+                  :content-length (gethash "content-length" headers)
+                  :content-type (gethash "content-type" headers)
+                  :headers headers))))
+    (error ()
+      (signal 'bad-request))))
 
 
 ;;
