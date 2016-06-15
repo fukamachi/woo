@@ -155,7 +155,9 @@
                        :body-callback
                        (lambda (data start end)
                          (declare (type (simple-array (unsigned-byte 8) (*)) data))
-                         (write-to-buffer body-buffer data start end))
+                         (if (smart-buffer::buffer-on-memory-p body-buffer)
+                             (write-to-buffer body-buffer (subseq data start end) 0 (- end start))
+                             (write-to-buffer body-buffer data start end)))
                        :finish-callback
                        (lambda ()
                          (handler-case
