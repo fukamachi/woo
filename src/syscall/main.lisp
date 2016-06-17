@@ -17,7 +17,7 @@
   (buf :pointer)
   (count size-t))
 
-(defcfun ("read") :unsigned-int
+(defcfun ("read") ssize-t
   (fd :int)
   (buf :pointer)
   (count :unsigned-int))
@@ -51,6 +51,8 @@
 (defconstant ECONNREFUSED 61.)
 (defconstant ECONNRESET 54.)
 (defconstant ENOTCONN 57.)
+(defconstant EAGAIN 11.)
+
 
 (defun set-fd-nonblock (fd enabled)
   (declare (optimize (speed 3) (safety 0)))
