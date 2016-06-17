@@ -22,6 +22,7 @@
            :ECONNREFUSED
            :ECONNRESET
            :ENOTCONN
+           :EAGAIN
 
            :fork
            :memset

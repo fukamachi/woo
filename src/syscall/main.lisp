@@ -53,7 +53,6 @@
 (defconstant ENOTCONN 57.)
 (defconstant EAGAIN 11.)
 
-
 (defun set-fd-nonblock (fd enabled)
   (declare (optimize (speed 3) (safety 0)))
   (let ((current-flags (%fcntl/noarg fd F-GETFL)))

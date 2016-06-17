@@ -99,9 +99,9 @@
                     (= errno wsys:ECONNRESET))
                 (vom:error "Connection is already closed (Code: ~D)" errno)
                 (close-socket socket))
-	       ((= errno wsys::eagain)
-		;; Jus to nothing
-		)
+               ((= errno wsys:EAGAIN)
+                ;; Just to nothing
+                )
                (t
                 (vom:error "Unexpected error (Code: ~D)" errno)
                 (close-socket socket))))
