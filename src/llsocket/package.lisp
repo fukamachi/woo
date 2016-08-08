@@ -63,7 +63,10 @@
            :+IP-RECVERR+
 
            :sockaddr
+           :sockaddr-storage
            :sockaddr-in
+           :in6-addr
+           :sockaddr-in6
            :sockaddr-un
 
            :+MSG-OOB+
