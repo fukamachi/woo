@@ -97,10 +97,23 @@
 (cstruct sockaddr "struct sockaddr"
   (family "sa_family" :type sa-family-t))
 
+(cstruct sockaddr-storage "struct sockaddr_storage"
+  (family "ss_family" :type sa-family-t))
+
 (cstruct sockaddr-in "struct sockaddr_in"
   (family "sin_family" :type sa-family-t)
   (port "sin_port" :type in-port-t)
   (addr "sin_addr" :type in-addr-t))
+
+(cunion in6-addr "struct in6_addr"
+  (addr8 "s6_addr" :type :uint8 :count :auto))
+
+(cstruct sockaddr-in6 "struct sockaddr_in6"
+  (family "sin6_family" :type sa-family-t)
+  (port "sin6_port" :type in-port-t)
+  (flowinfo "sin6_flowinfo" :type :uint32)
+  (addr "sin6_addr" :type in6-addr)
+  (scope-id "sin6_scope_id" :type :uint32))
 
 (include "sys/un.h")
 
