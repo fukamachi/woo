@@ -145,6 +145,7 @@
   (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
   (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in))))
 
+#+sbcl
 (pushnew 'init-hook sb-ext:*init-hooks*)
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
