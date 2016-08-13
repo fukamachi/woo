@@ -5,6 +5,7 @@
   (:import-from :woo.ev.tcp
                 :tcp-server
                 :close-tcp-server
+                :with-sockaddr
                 :*connection-timeout*)
   (:import-from :woo.ev.socket
                 :socket
@@ -41,6 +42,7 @@
            :*connection-timeout*
            :*evloop*
            :*data-registry*
+           :with-sockaddr
 
            ;; conditions
            :tcp-error

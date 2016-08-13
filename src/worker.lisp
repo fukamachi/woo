@@ -3,7 +3,8 @@
   (:use :cl
         :woo.specials)
   (:import-from :woo.ev
-                :*evloop*)
+                :*evloop*
+                :with-sockaddr)
   (:import-from :woo.queue
                 :make-queue
                 :queue-empty-p
@@ -94,17 +95,18 @@
            (lambda ()
              (bt:acquire-lock worker-lock)
              (let ((*worker* worker))
-               (unwind-protect
-                    (wev:with-event-loop ()
-                      (setf (worker-evloop worker) *evloop*)
-                      (bt:release-lock worker-lock)
-                      (lev:ev-async-start *evloop* dequeue-async)
-                      (lev:ev-async-start *evloop* stop-async))
-                 (unless (eq (worker-status worker) :stopping)
-                   (vom:debug "[~D] Worker has died" (worker-id worker))
-                   (funcall when-died worker))
-                 (finalize-worker worker)
-                 (vom:debug "[~D] Bye." (worker-id worker)))))
+               (wev:with-sockaddr
+                 (unwind-protect
+                      (wev:with-event-loop ()
+                        (setf (worker-evloop worker) *evloop*)
+                        (bt:release-lock worker-lock)
+                        (lev:ev-async-start *evloop* dequeue-async)
+                        (lev:ev-async-start *evloop* stop-async))
+                   (unless (eq (worker-status worker) :stopping)
+                     (vom:debug "[~D] Worker has died" (worker-id worker))
+                     (funcall when-died worker))
+                   (finalize-worker worker)
+                   (vom:debug "[~D] Bye." (worker-id worker))))))
            :initial-bindings (default-thread-bindings)
            :name "woo-worker"))
     (sleep 0.1)
