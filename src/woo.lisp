@@ -17,7 +17,8 @@
                 :*connection-timeout*
                 :*evloop*
                 :socket-remote-addr
-                :socket-remote-port)
+                :socket-remote-port
+                :with-sockaddr)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -82,39 +83,41 @@
                  (vom:config :woo.signal :info))
                (let ((*cluster* (woo.worker:make-cluster worker-num #'start-socket))
                      (signal-watchers (make-signal-watchers)))
-                 (unwind-protect
-                      (wev:with-event-loop (:cleanup-fn
-                                            (lambda ()
-                                              (stop-signal-watchers *evloop* signal-watchers)))
-                        (start-signal-watchers *evloop* signal-watchers)
-                        (setq *listener*
-                              (wev:tcp-server (or listen
-                                                  (cons address port))
-                                              #'read-cb
-                                              :connect-cb
-                                              (lambda (socket)
-                                                (woo.worker:add-job-to-cluster *cluster* socket))
-                                              :backlog backlog
-                                              :fd fd
-                                              :sockopt wsock:+SO-REUSEADDR+)))
-                   (wev:close-tcp-server *listener*)
-                   (woo.worker:stop-cluster *cluster*))))
+                 (wev:with-sockaddr
+                   (unwind-protect
+                        (wev:with-event-loop (:cleanup-fn
+                                              (lambda ()
+                                                (stop-signal-watchers *evloop* signal-watchers)))
+                          (start-signal-watchers *evloop* signal-watchers)
+                          (setq *listener*
+                                (wev:tcp-server (or listen
+                                                    (cons address port))
+                                                #'read-cb
+                                                :connect-cb
+                                                (lambda (socket)
+                                                  (woo.worker:add-job-to-cluster *cluster* socket))
+                                                :backlog backlog
+                                                :fd fd
+                                                :sockopt wsock:+SO-REUSEADDR+)))
+                     (wev:close-tcp-server *listener*)
+                     (woo.worker:stop-cluster *cluster*)))))
              (start-singlethread-server ()
                (let ((signal-watchers (make-signal-watchers)))
-                 (unwind-protect
-                      (wev:with-event-loop (:cleanup-fn
-                                            (lambda ()
-                                              (stop-signal-watchers *evloop* signal-watchers)))
-                        (start-signal-watchers *evloop* signal-watchers)
-                        (setq *listener*
-                              (wev:tcp-server (or listen
-                                                  (cons address port))
-                                              #'read-cb
-                                              :connect-cb #'start-socket
-                                              :backlog backlog
-                                              :fd fd
-                                              :sockopt wsock:+SO-REUSEADDR+)))
-                   (wev:close-tcp-server *listener*)))))
+                 (wev:with-sockaddr
+                   (unwind-protect
+                        (wev:with-event-loop (:cleanup-fn
+                                              (lambda ()
+                                                (stop-signal-watchers *evloop* signal-watchers)))
+                          (start-signal-watchers *evloop* signal-watchers)
+                          (setq *listener*
+                                (wev:tcp-server (or listen
+                                                    (cons address port))
+                                                #'read-cb
+                                                :connect-cb #'start-socket
+                                                :backlog backlog
+                                                :fd fd
+                                                :sockopt wsock:+SO-REUSEADDR+)))
+                     (wev:close-tcp-server *listener*))))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))

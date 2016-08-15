@@ -72,6 +72,7 @@
                 :split-sequence)
   (:export :tcp-server
            :close-tcp-server
+           :with-sockaddr
            :start-listening-socket
            :*connection-timeout*))
 (in-package :woo.ev.tcp)
@@ -134,19 +135,18 @@
                 (- timeout now))
           (lev:ev-timer-again evloop timer)))))
 
-(defvar *dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-in)))
-(defvar *dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
-(wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
-(setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+(defvar *dummy-sockaddr*)
+(defvar *dummy-socklen*)
 
-(defun init-hook ()
-  (setf *dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-in)))
-  (setf *dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
-  (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
-  (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in))))
-
-#+sbcl
-(pushnew 'init-hook sb-ext:*init-hooks*)
+(defmacro with-sockaddr (&body body)
+  `(let ((*dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-in)))
+         (*dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t)))
+     (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+     (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+     (unwind-protect
+          (progn ,@body)
+       (cffi:foreign-free *dummy-sockaddr*)
+       (cffi:foreign-free *dummy-socklen*))))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop events))
