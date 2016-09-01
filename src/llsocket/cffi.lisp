@@ -93,3 +93,12 @@
   (type :int)    ;; +SOCK-*+
   (protocol :int)
   (fd :int))
+
+(cffi:defcfun ("getaddrinfo" getaddrinfo) :int
+  (node :string)
+  (service :string)
+  (hints (:pointer addrinfo))
+  (res (:pointer (:pointer addrinfo))))
+
+(cffi:defcfun ("freeaddrinfo" freeaddrinfo) :void
+  (res (:pointer addrinfo)))

@@ -58,7 +58,7 @@
 (defvar *default-worker-num* nil)
 
 (defun run (app &key (debug t)
-                  (port 5000) (address "0.0.0.0")
+                  (port 5000) address
                   listen ;; UNIX domain socket
                   (backlog *default-backlog-size*) fd
                   (worker-num *default-worker-num*))

@@ -39,7 +39,11 @@
                 :sockaddr-in
                 :inet-ntoa
                 :setsockopt
-                :+AF-INET+
+                :addrinfo
+                :getaddrinfo
+                :freeaddrinfo
+                :+AF-INET6+
+                :+AI-PASSIVE+
                 :+SOCK-STREAM+
                 :+SOL-SOCKET+
                 :+SO-REUSEADDR+)
@@ -67,9 +71,9 @@
                 :with-foreign-object
                 :with-foreign-slots
                 :mem-aref
+                :mem-ref
+                :null-pointer
                 :foreign-type-size)
-  (:import-from :split-sequence
-                :split-sequence)
   (:export :tcp-server
            :close-tcp-server
            :with-sockaddr
@@ -197,47 +201,58 @@
     (setf (cffi:foreign-slot-value timer '(:struct lev:ev-timer) 'lev::data) (socket-read-watcher socket))
     (timeout-cb *evloop* timer lev:+EV-TIMER+)))
 
-(defun vector-to-integer (vector)
-  "Convert a vector to a 32-bit unsigned integer."
-  (+ (ash (aref vector 0) 24)
-     (ash (aref vector 1) 16)
-     (ash (aref vector 2) 8)
-     (aref vector 3)))
-
-(defun address-to-vector (address)
-  (map '(simple-array (unsigned-byte 8) (4))
-       #'read-from-string
-       (split-sequence #\. address)))
-
 (defun listen-on (address port &key (backlog 128) sockopt)
-  (let ((fd (wsock:socket wsock:+AF-INET+ wsock:+SOCK-STREAM+ 0)))
-    (when (= fd -1)
-      (error 'os-error
-             :description "Cannot create listening socket"
-             :code (wsys:errno)))
-    (let ((res (wsys:set-fd-nonblock fd t)))
-      (when (= res -1)
-        (error 'os-error
-               :description "Cannot set fd nonblock"
-               :code (wsys:errno))))
-    (cffi:with-foreign-object (on :int)
-      (setf (cffi:mem-aref on :int) 1)
-      (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
-        (error 'os-error
-               :description "Cannot set socket option"
-               :code (wsys:errno))))
-    (cffi:with-foreign-object (sin '(:struct wsock:sockaddr-in))
-      (wsys:bzero sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
-      (cffi:with-foreign-slots ((wsock::family wsock::addr wsock::port) sin (:struct wsock:sockaddr-in))
-        (setf wsock::family wsock:+AF-INET+
-              wsock::addr (htonl (vector-to-integer (address-to-vector address)))
-              wsock::port (htons (or port 0))))
-      (when (= (wsock:bind fd sin (cffi:foreign-type-size '(:struct wsock:sockaddr-in))) -1)
-        (error 'os-error
-               :description (format nil "Cannot bind fd to the address ~S" address)
-               :code (wsys:errno))))
-    (wsock:listen fd backlog)
-    fd))
+  (cffi:with-foreign-object (ai '(:pointer (:struct wsock:addrinfo)))
+    (cffi:with-foreign-object (hints '(:struct wsock:addrinfo))
+      (wsys:bzero hints (cffi:foreign-type-size '(:struct wsock:addrinfo)))
+      (cffi:with-foreign-slots ((wsock::family wsock::socktype wsock::flags) hints (:struct wsock:addrinfo))
+        (setf wsock::family wsock:+AF-INET6+
+              wsock::socktype wsock:+SOCK-STREAM+
+              wsock::flags wsock:+AI-PASSIVE+))
+      (let ((err (wsock:getaddrinfo (or address
+                                        (cffi:null-pointer))
+                                    (write-to-string port)
+                                    hints ai)))
+        (unless (= err 0)
+          (error 'os-error
+                 :description "getaddrinfo() failed"
+                 :code err))))
+    (let ((ai (cffi:mem-ref ai :pointer)))
+      (cffi:with-foreign-slots ((wsock::family
+                                 wsock::socktype
+                                 wsock::protocol
+                                 wsock::addr
+                                 wsock::addrlen)
+                                ai
+                                (:struct wsock:addrinfo))
+        (let ((fd (wsock:socket wsock::family wsock::socktype wsock::protocol)))
+          (when (= fd -1)
+            (error 'os-error
+                   :description (format nil "Cannot create listening socket (family=~S / socktype=~S / protocol=~S)"
+                                        wsock::family
+                                        wsock::socktype
+                                        wsock::protocol)
+                   :code (wsys:errno)))
+          (let ((res (wsys:set-fd-nonblock fd t)))
+            (when (= res -1)
+              (error 'os-error
+                     :description "Cannot set fd nonblock"
+                     :code (wsys:errno))))
+          (cffi:with-foreign-object (on :int)
+            (setf (cffi:mem-aref on :int) 1)
+            (when (= (wsock:setsockopt fd wsock:+SOL-SOCKET+ sockopt on (cffi:foreign-type-size :int)) -1)
+              (error 'os-error
+                     :description "Cannot set socket option"
+                     :code (wsys:errno))))
+          (when (= (wsock:bind fd wsock::addr wsock::addrlen) -1)
+            (error 'os-error
+                   :description (format nil "Cannot bind fd to the address ~S" address)
+                   :code (wsys:errno)))
+          (wsock:listen fd backlog)
+
+          (wsock:freeaddrinfo ai)
+
+          fd)))))
 
 (defun listen-on-fd (fd &key (backlog 128))
   (set-fd-nonblock fd t)

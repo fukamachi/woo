@@ -68,6 +68,7 @@
            :in6-addr
            :sockaddr-in6
            :sockaddr-un
+           :addrinfo
 
            :+MSG-OOB+
            :+MSG-PEEK+
@@ -76,6 +77,13 @@
            :+MSG-TRUNC+
            :+MSG-CTRUNC+
            :+MSG-WAITALL+
+
+           :+AI-PASSIVE+
+           :+AI-CANONNAME+
+           :+AI-NUMERICHOST+
+           :+AI-V4MAPPED+
+           :+AI-ALL+
+           :+AI-ADDRCONFIG+
 
            :msghdr
            :cmsghdr
@@ -104,6 +112,8 @@
            :shutdown
            :socket
            :socketpair
+           :getaddrinfo
+           :freeaddrinfo
 
            :so-reuseport-available-p))
 (in-package :woo.llsocket)
