@@ -72,6 +72,7 @@
                 :foreign-alloc
                 :foreign-free
                 :foreign-slot-value
+                :foreign-slot-pointer
                 :with-foreign-object
                 :with-foreign-slots
                 :mem-aref
