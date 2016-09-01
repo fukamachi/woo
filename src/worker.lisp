@@ -59,6 +59,7 @@
   (declare (ignore listener events))
   ;; Close existing all sockets.
   (maphash (lambda (fd socket)
+             (declare (ignore fd))
              (wev:close-socket socket))
            wev:*data-registry*)
 

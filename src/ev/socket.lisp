@@ -168,39 +168,40 @@
         (fd (socket-fd socket)))
     (declare (type (simple-array (unsigned-byte 8) (*)) data))
     (cffi:with-pointer-to-vector-data (data-sap data)
-      (let ((len (length data))
-            (completedp nil))
-        (let ((n (wsys:write fd data-sap len)))
-          (declare (dynamic-extent n))
-          (case n
-            (-1
-             (let ((errno (wsys:errno)))
-               (return-from flush-buffer
-                 (cond
-                   ((or (= errno wsys:EWOULDBLOCK)
-                        (= errno wsys:EINTR))
-                    nil)
-                   ((or (= errno wsys:ECONNABORTED)
-                        (= errno wsys:ECONNREFUSED)
-                        (= errno wsys:ECONNRESET)
-                        (= errno wsys:EPIPE)
-                        (= errno wsys:ENOTCONN))
-                    (vom:error "Connection is already closed (Code: ~D)" errno)
-                    (close-socket socket)
-                    t)
-                   (t
-                    (vom:error "Unexpected error (Code: ~D)" errno)
-                    (close-socket socket)
-                    t)))))
-            (otherwise
-             (setf (socket-last-activity socket) (lev:ev-now *evloop*))
-             (if (= n len)
-                 (setq completedp t)
-                 (progn
-                   (reset-buffer socket)
-                   (fast-write-sequence data
-                                        (socket-buffer socket)
-                                        n))))))
+      (let* ((len (length data))
+             (completedp nil)
+             (n (wsys:write fd data-sap len)))
+        (declare (type fixnum len)
+                 (type fixnum n))
+        (case n
+          (-1
+           (let ((errno (wsys:errno)))
+             (return-from flush-buffer
+               (cond
+                 ((or (= errno wsys:EWOULDBLOCK)
+                      (= errno wsys:EINTR))
+                  nil)
+                 ((or (= errno wsys:ECONNABORTED)
+                      (= errno wsys:ECONNREFUSED)
+                      (= errno wsys:ECONNRESET)
+                      (= errno wsys:EPIPE)
+                      (= errno wsys:ENOTCONN))
+                  (vom:error "Connection is already closed (Code: ~D)" errno)
+                  (close-socket socket)
+                  t)
+                 (t
+                  (vom:error "Unexpected error (Code: ~D)" errno)
+                  (close-socket socket)
+                  t)))))
+          (otherwise
+           (setf (socket-last-activity socket) (lev:ev-now *evloop*))
+           (if (= n len)
+               (setq completedp t)
+               (progn
+                 (reset-buffer socket)
+                 (fast-write-sequence data
+                                      (socket-buffer socket)
+                                      n)))))
         completedp))))
 
 (defun send-file (socket)

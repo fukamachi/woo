@@ -201,7 +201,7 @@
         (values host nil)))
 
     (locally (declare (type fixnum pos))
-      (let ((port (loop with port = 0
+      (let ((port (loop with port of-type fixnum = 0
                         for i from (1+ pos) to (1- (length host))
                         for char = (aref host i)
                         do (if (digit-char-p char)
