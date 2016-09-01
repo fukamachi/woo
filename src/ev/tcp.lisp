@@ -97,7 +97,7 @@
          (read-cb (socket-read-cb socket)))
     (loop
       (let ((n (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
-        (declare (dynamic-extent n))
+        (declare (type fixnum n))
         (case n
           (-1
            (let ((errno (wsys:errno)))

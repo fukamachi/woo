@@ -81,6 +81,8 @@
 ;; errno(3) is not a C function in some environments (ex. Mac).
 ;; libfixposix can be a workaround for it, but I don't like to add a dependency on it
 ;; just for it.
+#+(or sbcl ccl)
+(declaim (ftype (function () fixnum) errno))
 (defun errno ()
   #+sbcl (sb-impl::get-errno)
   #+ccl (ccl::%get-errno)

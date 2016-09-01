@@ -25,6 +25,7 @@
       (woo.worker:stop-cluster *cluster*)
       ;; Close existing all sockets for singlethreaded process.
       (maphash (lambda (fd socket)
+                 (declare (ignore fd))
                  (wev:close-socket socket))
                wev:*data-registry*))
   (lev:ev-break evloop lev:+EVBREAK-ALL+))
@@ -36,6 +37,7 @@
   (if *cluster*
       (woo.worker:kill-cluster *cluster*)
       (maphash (lambda (fd socket)
+                 (declare (ignore fd))
                  (wev:close-socket socket))
                wev:*data-registry*))
   (lev:ev-break evloop lev:+EVBREAK-ALL+))
