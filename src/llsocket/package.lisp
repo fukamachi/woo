@@ -102,6 +102,7 @@
            :getsockname
            :getsockopt
            :inet-ntoa
+           :inet-ntop
            :listen
            :recvfrom
            :recvmsg

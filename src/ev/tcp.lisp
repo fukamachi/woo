@@ -37,11 +37,15 @@
                 :+SOCK-NONBLOCK+
                 :socket
                 :sockaddr-in
+                :sockaddr-in6
+                :sockaddr-storage
                 :inet-ntoa
+                :inet-ntop
                 :setsockopt
                 :addrinfo
                 :getaddrinfo
                 :freeaddrinfo
+                :+AF-INET+
                 :+AF-INET6+
                 :+AI-PASSIVE+
                 :+SOCK-STREAM+
@@ -73,7 +77,8 @@
                 :mem-aref
                 :mem-ref
                 :null-pointer
-                :foreign-type-size)
+                :foreign-type-size
+                :foreign-string-to-lisp)
   (:export :tcp-server
            :close-tcp-server
            :with-sockaddr
@@ -141,16 +146,44 @@
 
 (defvar *dummy-sockaddr*)
 (defvar *dummy-socklen*)
+(defvar *dummy-sockstring*)
+(defvar *dummy-sockstring-ptr*)
 
 (defmacro with-sockaddr (&body body)
-  `(let ((*dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-in)))
-         (*dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t)))
-     (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
-     (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-in)))
+  `(let* ((*dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-storage)))
+          (*dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
+          (*dummy-sockstring* (cffi:foreign-alloc :char :count 46))
+          (*dummy-sockstring-ptr* (cffi:pointer-address *dummy-sockstring*)))
+     (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
+     (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
+     (dotimes (i 46)
+       (setf (mem-ref *dummy-sockstring* :char i) 0))
      (unwind-protect
           (progn ,@body)
        (cffi:foreign-free *dummy-sockaddr*)
-       (cffi:foreign-free *dummy-socklen*))))
+       (cffi:foreign-free *dummy-socklen*)
+       (cffi:foreign-free *dummy-sockstring*))))
+
+(defun get-remote-addr-and-port ()
+  (declare (optimize (speed 3) (safety 2) (debug 2)))
+  (let ((family (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-storage) 'wsock::family)))
+    (declare (type fixnum family))
+    (cond
+      ((= family wsock:+AF-INET6+)
+       (wsock:inet-ntop
+        family
+        (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in6) 'wsock::addr)
+        *dummy-sockstring-ptr*
+        (cffi:mem-aref *dummy-socklen* :int))
+       (values
+        (cffi:foreign-string-to-lisp *dummy-sockstring*)
+        (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in6) 'wsock::port)))
+      ((= family wsock:+AF-INET+)
+       (values
+        (wsock:inet-ntoa
+         (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr))
+        (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in) 'wsock::port)))
+      (t (values nil nil)))))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop events))
@@ -180,18 +213,17 @@
        (let ((existing-socket (deref-data-from-pointer client-fd)))
          (when existing-socket
            (close-socket existing-socket)))
-       (let* ((remote-addr (wsock:inet-ntoa
-                            (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::addr)))
-              (remote-port (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock::sockaddr-in) 'wsock::port))
-              (socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
-                        :remote-addr remote-addr :remote-port remote-port)))
-         (let* ((callbacks (callbacks fd))
-                (read-cb (getf callbacks :read-cb))
-                (connect-cb (getf callbacks :connect-cb)))
-           (when read-cb
-             (setf (socket-read-cb socket) read-cb))
-           (when connect-cb
-             (funcall (the function connect-cb) socket))))))))
+       (multiple-value-bind (remote-addr remote-port)
+           (get-remote-addr-and-port)
+         (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
+                                    :remote-addr remote-addr :remote-port remote-port)))
+           (let* ((callbacks (callbacks fd))
+                  (read-cb (getf callbacks :read-cb))
+                  (connect-cb (getf callbacks :connect-cb)))
+             (when read-cb
+               (setf (socket-read-cb socket) read-cb))
+             (when connect-cb
+               (funcall (the function connect-cb) socket)))))))))
 
 (defun start-listening-socket (socket)
   (setf (deref-data-from-pointer (socket-fd socket)) socket)
@@ -206,7 +238,10 @@
     (cffi:with-foreign-object (hints '(:struct wsock:addrinfo))
       (wsys:bzero hints (cffi:foreign-type-size '(:struct wsock:addrinfo)))
       (cffi:with-foreign-slots ((wsock::family wsock::socktype wsock::flags) hints (:struct wsock:addrinfo))
-        (setf wsock::family wsock:+AF-INET6+
+        (setf wsock::family (if (and (stringp address)
+                                     (quri.domain:ipv6-addr-p address))
+                                wsock:+AF-INET6+
+                                wsock:+AF-INET+)
               wsock::socktype wsock:+SOCK-STREAM+
               wsock::flags wsock:+AI-PASSIVE+))
       (let ((err (wsock:getaddrinfo (or address

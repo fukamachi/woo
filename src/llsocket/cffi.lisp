@@ -42,6 +42,12 @@
 (cffi:defcfun ("inet_ntoa" inet-ntoa) :string
   (addr :int64))
 
+(cffi:defcfun ("inet_ntop" inet-ntop) :string
+  (af :int)
+  (src :pointer)
+  (dst :string)
+  (size socklen-t))
+
 (cffi:defcfun ("listen" listen) :int
   (socket :int)
   (backlog :int))

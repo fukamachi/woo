@@ -120,7 +120,7 @@
   (family "sin6_family" :type sa-family-t)
   (port "sin6_port" :type in-port-t)
   (flowinfo "sin6_flowinfo" :type :uint32)
-  (addr "sin6_addr" :type in6-addr)
+  (addr "sin6_addr" :type (:union in6-addr))
   (scope-id "sin6_scope_id" :type :uint32))
 
 (cstruct addrinfo "struct addrinfo"
