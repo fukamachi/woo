@@ -1,8 +1,7 @@
 (in-package :cl-user)
 (defpackage woo.llsocket
   (:nicknames :wsock)
-  (:use :cl
-        :split-sequence)
+  (:use :cl)
   (:shadow :listen)
   (:export :+AF-UNIX+
            :+AF-INET+
@@ -130,12 +129,9 @@
               nil
               (subseq kernel-version 0 (1- (length kernel-version)))))
     (when kernel-version
-      (destructuring-bind (major &optional minor)
-          (split-sequence #\. kernel-version
-                          :count 2)
-        (let ((major (parse-integer major :junk-allowed t))
-              (minor (and minor
-                          (parse-integer minor :junk-allowed t))))
+      (multiple-value-bind (major read-count)
+          (parse-integer kernel-version :junk-allowed t)
+        (let ((minor (parse-integer kernel-version :start (1+ read-count) :junk-allowed t)))
           (and major minor
                (or (< 3 major)
                    (and (= 3 major)
