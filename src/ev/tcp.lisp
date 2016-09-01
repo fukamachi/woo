@@ -147,13 +147,11 @@
 (defvar *dummy-sockaddr*)
 (defvar *dummy-socklen*)
 (defvar *dummy-sockstring*)
-(defvar *dummy-sockstring-ptr*)
 
 (defmacro with-sockaddr (&body body)
   `(let* ((*dummy-sockaddr* (cffi:foreign-alloc '(:struct wsock:sockaddr-storage)))
           (*dummy-socklen* (cffi:foreign-alloc 'wsock:socklen-t))
-          (*dummy-sockstring* (cffi:foreign-alloc :char :count 46))
-          (*dummy-sockstring-ptr* (cffi:pointer-address *dummy-sockstring*)))
+          (*dummy-sockstring* (cffi:foreign-alloc :char :count 46)))
      (wsys:bzero *dummy-sockaddr* (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
      (setf (cffi:mem-aref *dummy-socklen* 'wsock:socklen-t) (cffi:foreign-type-size '(:struct wsock:sockaddr-storage)))
      (dotimes (i 46)
@@ -173,7 +171,7 @@
        (wsock:inet-ntop
         family
         (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in6) 'wsock::addr)
-        *dummy-sockstring-ptr*
+        *dummy-sockstring*
         (cffi:mem-aref *dummy-socklen* :int))
        (values
         (cffi:foreign-string-to-lisp *dummy-sockstring*)
