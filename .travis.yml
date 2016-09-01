@@ -28,11 +28,6 @@ install:
   - git clone https://github.com/fukamachi/clack ~/lisp/clack
   - git clone https://github.com/fukamachi/smart-buffer ~/lisp/smart-buffer
 
-cache:
-  directories:
-    - $HOME/.roswell
-    - $HOME/.config/common-lisp
-
 before_script:
   - ros run -- --version
 
