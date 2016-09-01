@@ -170,7 +170,7 @@
       ((= family wsock:+AF-INET6+)
        (wsock:inet-ntop
         family
-        (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in6) 'wsock::addr)
+        (cffi:foreign-slot-pointer *dummy-sockaddr* '(:struct wsock:sockaddr-in6) 'wsock::addr)
         *dummy-sockstring*
         (cffi:mem-aref *dummy-socklen* :int))
        (values
