@@ -24,8 +24,6 @@ install:
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
   - ros install prove
-  - git clone https://github.com/fukamachi/clack ~/lisp/clack
-  - git clone https://github.com/fukamachi/smart-buffer ~/lisp/smart-buffer
 
 cache:
   directories:
