@@ -25,11 +25,6 @@ install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
   - ros install prove
 
-cache:
-  directories:
-    - $HOME/.roswell
-    - $HOME/.config/common-lisp
-
 before_script:
   - ros run -- --version
 
