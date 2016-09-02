@@ -239,7 +239,7 @@
                                     (quri:uri-error ()
                                       path)))
                   :query-string query
-                  :url-scheme :http
+                  :url-scheme "http"
                   :remote-addr (socket-remote-addr socket)
                   :remote-port (socket-remote-port socket)
                   :request-uri uri
