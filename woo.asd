@@ -33,7 +33,6 @@
                :vom
                :local-time
                :alexandria
-               :split-sequence
                #+sbcl :sb-posix
                #+linux :uiop
                #+sbcl :sb-concurrency

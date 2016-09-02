@@ -118,19 +118,20 @@
     (cffi:foreign-free timeout-timer)))
 
 (defun close-socket (socket)
-  (free-watchers socket)
-  (let ((fd (socket-fd socket)))
-    (wsys:close fd)
-    (remove-pointer-from-registry fd))
-  (setf (socket-open-p socket) nil
-        (socket-read-cb socket) nil
-        (socket-write-cb socket) nil
-        (socket-buffer socket) nil
-        (socket-data socket) nil)
-  (let ((sendfile-fd (socket-sendfile-fd socket)))
-    (when sendfile-fd
-      (wsys:close sendfile-fd)
-      (setf (socket-sendfile-fd socket) nil)))
+  (when (socket-open-p socket)
+    (setf (socket-open-p socket) nil)
+    (free-watchers socket)
+    (let ((fd (socket-fd socket)))
+      (wsys:close fd)
+      (remove-pointer-from-registry fd))
+    (setf (socket-read-cb socket) nil
+          (socket-write-cb socket) nil
+          (socket-buffer socket) nil
+          (socket-data socket) nil)
+    (let ((sendfile-fd (socket-sendfile-fd socket)))
+      (when sendfile-fd
+        (wsys:close sendfile-fd)
+        (setf (socket-sendfile-fd socket) nil))))
   t)
 
 (defun check-socket-open (socket)
