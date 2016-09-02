@@ -20,6 +20,7 @@ addons:
 
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/install-wrk.sh; fi
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
@@ -32,3 +33,4 @@ before_script:
 
 script:
   - run-prove woo-test.asd
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/woo/run; fi
