@@ -119,12 +119,12 @@
 
 (defun close-socket (socket)
   (when (socket-open-p socket)
+    (setf (socket-open-p socket) nil)
     (free-watchers socket)
     (let ((fd (socket-fd socket)))
       (wsys:close fd)
       (remove-pointer-from-registry fd))
-    (setf (socket-open-p socket) nil
-          (socket-read-cb socket) nil
+    (setf (socket-read-cb socket) nil
           (socket-write-cb socket) nil
           (socket-buffer socket) nil
           (socket-data socket) nil)
