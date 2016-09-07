@@ -28,10 +28,12 @@
                 :+EV-READ+
                 :+EV-WRITE+)
   (:import-from :fast-io
-                :make-output-buffer
+                #+nil :make-output-buffer
+                :make-octet-vector
                 :fast-write-sequence
                 :fast-write-byte
-                :finish-output-buffer)
+                :finish-output-buffer
+                :buffer-position)
   (:import-from :cffi
                 :with-pointer-to-vector-data
                 :incf-pointer
@@ -56,6 +58,16 @@
            :send-static-file
            :close-socket))
 (in-package :woo.ev.socket)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *default-output-buffer-size* 64
+    "The default buffer size.
+This variable is private and used in read-time."))
+
+(defun make-output-buffer ()
+  (declare (optimize speed))
+  (fast-io:make-output-buffer
+   :vector (fast-io:make-octet-vector #.*default-output-buffer-size*)))
 
 (defstruct (socket (:constructor %make-socket))
   (watchers (make-array 3
@@ -156,7 +168,7 @@
 (defun reset-buffer (socket)
   (let ((buffer (socket-buffer socket)))
     (when buffer
-      (setf (fast-io::output-buffer-vector buffer) (fast-io::make-octet-vector fast-io:*default-output-buffer-size*)
+      (setf (fast-io::output-buffer-vector buffer) (fast-io::make-octet-vector #.*default-output-buffer-size*)
             (fast-io::output-buffer-fill buffer) 0
             (fast-io::output-buffer-len buffer) 0
             (fast-io::output-buffer-queue buffer) nil
