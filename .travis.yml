@@ -1,5 +1,5 @@
 language: common-lisp
-sudo: false
+sudo: required
 
 os:
   - linux
@@ -25,10 +25,11 @@ install:
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
 
-  # wrk for benchmarking
+  # wrk, go for benchmarking
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       curl -L "https://github.com/wg/wrk/archive/$WRK_VERSION.tar.gz" | tar xzf -;
       (cd "wrk-$WRK_VERSION/" && make && cp wrk ~/.roswell/bin);
+      sudo apt-get install golang;
     fi
 
   - ros install prove
@@ -41,3 +42,4 @@ before_script:
 script:
   - run-prove woo-test.asd
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/woo/run; fi
+  - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/go/run; fi
