@@ -93,7 +93,7 @@ This variable is private and used in read-time."))
 
 (defun buffer-empty-p (socket)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
-  (= (the fixnum (fast-io::output-buffer-len (socket-buffer socket))) 0))
+  (= (the fixnum (fast-io:buffer-position (socket-buffer socket))) 0))
 
 (defun make-socket (&rest initargs &key tcp-read-cb fd &allow-other-keys)
   (let ((socket (apply #'%make-socket initargs)))
