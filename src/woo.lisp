@@ -22,8 +22,7 @@
   (:import-from :quri
                 :uri
                 :uri-path
-                :uri-query
-                :uri-error)
+                :uri-query)
   (:import-from :fast-http
                 :make-http-request
                 :make-parser
@@ -235,9 +234,7 @@
                   :server-port (or server-port 80)
                   :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
                   :path-info (and path
-                                  (handler-case (quri:url-decode path)
-                                    (quri:uri-error ()
-                                      path)))
+                                  (quri:url-decode path :lenient t))
                   :query-string query
                   :url-scheme "http"
                   :remote-addr (socket-remote-addr socket)
