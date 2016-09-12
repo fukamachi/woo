@@ -25,6 +25,7 @@
                :swap-bytes
                :cffi
                :static-vectors
+               :bordeaux-threads
                :fast-http
                :quri
                :fast-io
