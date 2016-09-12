@@ -25,13 +25,13 @@
                :swap-bytes
                :cffi
                :static-vectors
+               :bordeaux-threads
                :fast-http
                :quri
                :fast-io
                :smart-buffer
                :trivial-utf-8
                :vom
-               :local-time
                :alexandria
                #+sbcl :sb-posix
                #+linux :uiop

@@ -120,29 +120,6 @@
            (optimize (speed 3) (safety 0)))
   (the character (code-char (+ 48 int))))
 
-(defun current-time ()
-  (declare (optimize (speed 3) (safety 0)))
-  (let ((sec (local-time::%get-current-time)))
-    (declare (type fixnum sec))
-    (multiple-value-bind (days secs)
-        (floor (the (unsigned-byte 64) sec) local-time:+seconds-per-day+)
-      (decf days 11017)
-      (multiple-value-bind (adjusted-secs adjusted-days)
-          (local-time::%adjust-to-offset secs days 0)
-        (declare (type fixnum adjusted-secs adjusted-days))
-        (multiple-value-bind (hours minutes seconds)
-            (local-time::%timestamp-decode-time adjusted-secs)
-          (multiple-value-bind (year month day)
-              (local-time::%timestamp-decode-date adjusted-days)
-            (values
-             seconds
-             minutes
-             hours
-             day
-             month
-             year
-             (mod (the (unsigned-byte 64) (+ 3 adjusted-days)) 7))))))))
-
 (defun current-rfc-1123-timestamp ()
   (declare (optimize (speed 3) (safety 0)))
   (macrolet ((write-date (val start &optional (len '*))
@@ -162,11 +139,14 @@
                       (write-char-to-date (integer-to-character quotient) ,start)
                       (write-char-to-date (integer-to-character remainder) ,(1+ start))))))
     (multiple-value-bind (sec minute hour day month year weekday)
-        (current-time)
+        (decode-universal-time (get-universal-time) 0)
       (declare (type fixnum sec minute hour day month year weekday))
-      (write-date (svref local-time::+short-day-names+ weekday) 0 3)
+      (write-date (svref #("Mon" "Tue" "Wed" "Thu" "Fri" "Sat" "Sun") weekday)
+                  0 3)
       (write-int-to-date day 5)
-      (write-date (svref local-time::+short-month-names+ month) 8 3)
+      (write-date (svref #("" "Jan" "Feb" "Mar" "Apr" "May" "Jun" "Jul" "Aug" "Sep" "Oct" "Nov" "Dec")
+                         month)
+                  8 3)
       (multiple-value-bind (quotient remainder)
           (floor (the (unsigned-byte 64) year) 1000)
         (write-char-to-date (integer-to-character quotient) 12)
