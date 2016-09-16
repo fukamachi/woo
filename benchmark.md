@@ -16,21 +16,30 @@ wrk -c [10 or 100] -t 4 -d 10 http://127.0.0.1:5000
 
 The benchmarking environment is:
 
-* Sakura VPS 4GB (CPU: 4 Core / Memory: 4GB)
-* Ubuntu 14.04.3 LTS (GNU/Linux 3.13.0-61-generic x86_64)
+* Sakura VPS 16GB (CPU: 8 Core / Memory: 16GB)
+* Ubuntu 16.04.2 LTS (GNU/Linux 4.4.0-36-generic)
 * wrk 4.0.0
-* nginx 1.4.6
-* Python 2.7.6
-* PyPy 2.6.0
-* Tornado 4.2.1
-* Quicklisp 2015-08-04
-* SBCL 1.2.14
-* Node.js 0.12.7
-* Go 1.2.1
-* Ruby 2.1.6p336
-* Unicorn 4.9.0
-* libuv 1.7.0
-* libev 4.15
+* nginx 1.10.0
+* Python 2.7.12
+* PyPy 5.1.2
+* Tornado 4.4.1
+* SBCL 1.3.9
+* Quicklisp 2016-08-25
+* Node.js 4.2.6
+* Go 1.6.2
+* Ruby 2.3.1p112
+* Unicorn 5.1.0
+* libuv 1.8.0
+* libev 4.22
+
+```
+$ cat /proc/version
+Linux version 4.4.0-36-generic (buildd@lcy01-01) (gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.2) ) #55-Ubuntu SMP Thu Aug 11 18:01:55 UTC 2016
+$ sudo apt-get install wrk nginx python2.7 python-pip pypy nodejs golang ruby ruby-dev libuv1-dev libev-dev
+$ sudo apt-get install -y autotools-dev automake libcurl4-gnutls-dev curl make
+$ pip install tornado
+$ sudo gem install unicorn rack
+```
 
 ## Wookie (Common Lisp)
 
@@ -42,50 +51,50 @@ $ benchmark/run-benchmark benchmark/wookie/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     5.91ms    5.18ms  70.90ms   95.25%
-    Req/Sec   376.95     91.68   540.00     61.25%
-  15020 requests in 10.01s, 1.09MB read
-Requests/sec:   1500.30
-Transfer/sec:    111.35KB
+    Latency     2.28ms    1.47ms  35.53ms   95.53%
+    Req/Sec     0.93k    73.03     1.11k    75.25%
+  37105 requests in 10.01s, 2.69MB read
+Requests/sec:   3707.70
+Transfer/sec:    275.18KB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    70.19ms   16.91ms 217.79ms   88.88%
-    Req/Sec   362.65    123.18   505.00     57.83%
-  14363 requests in 10.03s, 1.04MB read
-Requests/sec:   1432.61
-Transfer/sec:    106.33KB
+    Latency    27.57ms    4.48ms  82.00ms   84.93%
+    Req/Sec     0.91k   131.34     1.77k    65.50%
+  36332 requests in 10.03s, 2.63MB read
+Requests/sec:   3622.04
+Transfer/sec:    268.82KB
 ```
 
 ## Tornado (Python)
 
 ```
-$ benchmark/run-benchmark python benchmark/tornado/run
+$ benchmark/run-benchmark python2.7 benchmark/tornado/run
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     4.82ms  191.20us  14.61ms   99.16%
-    Req/Sec   415.18      9.05   430.00     75.00%
-  16536 requests in 10.01s, 3.26MB read
-Requests/sec:   1651.40
-Transfer/sec:    333.83KB
+    Latency     3.70ms  195.32us   6.61ms   93.77%
+    Req/Sec   542.43     16.24   626.00     52.75%
+  21605 requests in 10.01s, 4.27MB read
+Requests/sec:   2157.56
+Transfer/sec:    436.15KB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    61.80ms    4.28ms 116.16ms   97.59%
-    Req/Sec   404.76     67.47   505.00     67.50%
-  16132 requests in 10.01s, 3.18MB read
-Requests/sec:   1611.14
-Transfer/sec:    325.69KB
+    Latency    47.30ms    2.72ms  80.61ms   95.09%
+    Req/Sec   529.76     61.37   696.00     84.25%
+  21100 requests in 10.04s, 4.17MB read
+Requests/sec:   2102.45
+Transfer/sec:    425.01KB
 ```
 
 ## Hunchentoot (Common Lisp)
@@ -98,23 +107,23 @@ $ benchmark/run-benchmark benchmark/hunchentoot/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.87ms    9.71ms 154.74ms   98.20%
-    Req/Sec   660.48     64.27   727.00     88.64%
-  26122 requests in 10.01s, 4.38MB read
-Requests/sec:   2609.58
-Transfer/sec:    448.52KB
+    Latency     1.80ms  692.10us  15.53ms   98.18%
+    Req/Sec     1.12k    67.36     1.17k    92.52%
+  44589 requests in 10.10s, 7.48MB read
+Requests/sec:   4414.92
+Transfer/sec:    758.81KB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    39.67ms  103.29ms   1.64s    94.34%
-    Req/Sec   517.47    339.19     1.27k    59.05%
-  11368 requests in 10.03s, 1.91MB read
-  Socket errors: connect 0, read 0, write 0, timeout 55
-Requests/sec:   1133.89
-Transfer/sec:    194.89KB
+    Latency    28.87ms   93.72ms   1.61s    95.60%
+    Req/Sec     1.10k   275.26     1.74k    73.44%
+  40945 requests in 10.03s, 6.87MB read
+  Socket errors: connect 0, read 0, write 0, timeout 3
+Requests/sec:   4082.88
+Transfer/sec:    701.74KB
 ```
 
 ## Tornado (PyPy)
@@ -127,22 +136,22 @@ $ benchmark/run-benchmark pypy benchmark/tornado/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.73ms    2.98ms  55.99ms   98.95%
-    Req/Sec     1.33k   112.68     1.44k    94.25%
-  52836 requests in 10.01s, 10.43MB read
-Requests/sec:   5275.79
-Transfer/sec:      1.04MB
+    Latency   706.99us  500.39us  15.64ms   99.32%
+    Req/Sec     2.94k   132.70     3.51k    92.80%
+  117746 requests in 10.10s, 23.24MB read
+Requests/sec:  11657.78
+Transfer/sec:      2.30MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    21.02ms    7.82ms 160.93ms   95.65%
-    Req/Sec     1.23k   181.03     1.50k    85.50%
-  48891 requests in 10.02s, 9.65MB read
-Requests/sec:   4881.21
-Transfer/sec:      0.96MB
+    Latency     9.42ms    1.78ms  45.47ms   96.15%
+    Req/Sec     2.68k   256.60     3.01k    88.25%
+  106610 requests in 10.02s, 21.05MB read
+Requests/sec:  10636.27
+Transfer/sec:      2.10MB
 ```
 
 ## Node.js http module
@@ -155,22 +164,22 @@ $ benchmark/run-benchmark benchmark/node/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.54ms  327.61us  10.80ms   98.03%
-    Req/Sec     1.29k    46.27     1.57k    80.00%
-  51339 requests in 10.02s, 6.36MB read
-Requests/sec:   5126.11
-Transfer/sec:    650.78KB
+    Latency   655.88us   58.56us   3.40ms   96.02%
+    Req/Sec     3.06k    76.70     3.18k    81.93%
+  122947 requests in 10.10s, 15.24MB read
+Requests/sec:  12173.13
+Transfer/sec:      1.51MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    19.31ms    1.51ms  52.07ms   94.96%
-    Req/Sec     1.30k    77.19     1.50k    89.75%
-  51705 requests in 10.02s, 6.41MB read
-Requests/sec:   5159.70
-Transfer/sec:    655.04KB
+    Latency     8.33ms  648.44us  20.02ms   90.64%
+    Req/Sec     3.02k   191.95     3.79k    72.25%
+  120074 requests in 10.02s, 14.89MB read
+Requests/sec:  11984.32
+Transfer/sec:      1.49MB
 ```
 
 ## Woo (Common Lisp)
@@ -183,22 +192,22 @@ $ benchmark/run-benchmark benchmark/woo/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   811.53us    0.86ms  19.20ms   98.94%
-    Req/Sec     2.57k   144.70     3.35k    89.58%
-  102945 requests in 10.10s, 12.76MB read
-Requests/sec:  10192.36
-Transfer/sec:      1.26MB
+    Latency   298.09us  280.55us  11.49ms   99.22%
+    Req/Sec     7.10k   595.38    15.62k    85.29%
+  283126 requests in 10.10s, 35.10MB read
+Requests/sec:  28032.34
+Transfer/sec:      3.48MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     9.29ms    7.86ms 236.64ms   98.21%
-    Req/Sec     2.86k   326.20     4.99k    90.30%
-  114613 requests in 10.10s, 14.21MB read
-Requests/sec:  11347.52
-Transfer/sec:      1.41MB
+    Latency     2.60ms  594.86us  17.18ms   96.36%
+    Req/Sec     9.71k   715.15    15.16k    76.25%
+  386785 requests in 10.02s, 47.95MB read
+Requests/sec:  38591.20
+Transfer/sec:      4.78MB
 ```
 
 ## Go
@@ -211,22 +220,22 @@ $ benchmark/run-benchmark benchmark/go/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   571.26us  779.80us  30.60ms   98.69%
-    Req/Sec     3.52k   332.38     7.98k    82.04%
-  140357 requests in 10.10s, 17.27MB read
-Requests/sec:  13898.15
-Transfer/sec:      1.71MB
+    Latency     1.09ms    7.09ms 111.96ms   98.27%
+    Req/Sec     7.89k     1.75k   21.69k    96.27%
+  315671 requests in 10.10s, 38.84MB read
+Requests/sec:  31253.92
+Transfer/sec:      3.84MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     7.20ms    4.12ms  76.59ms   70.88%
-    Req/Sec     3.54k   244.72     4.27k    77.75%
-  140821 requests in 10.01s, 17.32MB read
-Requests/sec:  14069.35
-Transfer/sec:      1.73MB
+    Latency     3.24ms    1.86ms  20.24ms   62.52%
+    Req/Sec     7.82k     1.05k   27.62k    98.50%
+  312051 requests in 10.10s, 38.39MB read
+Requests/sec:  30897.12
+Transfer/sec:      3.80MB
 ```
 
 ## Hunchentoot (multi-threaded-taskmaster)
@@ -239,22 +248,22 @@ $ benchmark/run-benchmark benchmark/hunchentoot/run true
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.41ms    3.68ms  42.62ms   95.47%
-    Req/Sec     2.65k   306.72     2.93k    77.75%
-  105501 requests in 10.00s, 15.80MB read
-Requests/sec:  10548.24
-Transfer/sec:      1.58MB
+    Latency   574.56us    2.16ms  50.15ms   96.26%
+    Req/Sec     7.38k     1.19k   10.46k    69.23%
+  295875 requests in 10.10s, 44.30MB read
+Requests/sec:  29294.85
+Transfer/sec:      4.39MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency    18.65ms   57.01ms 991.35ms   94.55%
-    Req/Sec     2.57k     0.95k    6.34k    74.39%
-  97717 requests in 10.07s, 14.63MB read
-Requests/sec:   9703.66
-Transfer/sec:      1.45MB
+    Latency    12.36ms   52.93ms 943.13ms   97.07%
+    Req/Sec     8.13k     3.31k   19.63k    69.21%
+  322897 requests in 10.09s, 48.35MB read
+Requests/sec:  32007.10
+Transfer/sec:      4.79MB
 ```
 
 ## Unicorn + nginx (Ruby, worker_processes=4)
@@ -263,7 +272,7 @@ nginx's worker\_processes=4
 Unicorn's worker\_processes=4
 
 ```
-$ sudo nginx -c benchmark/unicorn/nginx.conf
+$ sudo nginx -c $PWD/benchmark/unicorn/nginx.conf
 $ benchmark/run-benchmark benchmark/unicorn/run
 ```
 
@@ -271,22 +280,22 @@ $ benchmark/run-benchmark benchmark/unicorn/run
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   775.04us  499.01us  13.46ms   89.84%
-    Req/Sec     2.50k   408.49     3.88k    66.75%
-  100194 requests in 10.10s, 16.81MB read
-Requests/sec:   9921.11
-Transfer/sec:      1.66MB
+    Latency   220.02us  260.33us  11.86ms   98.23%
+    Req/Sec     9.67k     1.22k   12.66k    70.90%
+  386771 requests in 10.10s, 59.37MB read
+Requests/sec:  38294.10
+Transfer/sec:      5.88MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     6.07ms    3.86ms 129.13ms   91.73%
-    Req/Sec     4.04k   502.40     5.89k    69.00%
-  161881 requests in 10.10s, 27.16MB read
-Requests/sec:  16031.95
-Transfer/sec:      2.69MB
+    Latency     1.63ms    3.35ms 103.23ms   98.31%
+    Req/Sec    18.58k     6.26k   42.99k    72.50%
+  740129 requests in 10.04s, 113.61MB read
+Requests/sec:  73711.39
+Transfer/sec:     11.31MB
 ```
 
 ## Node.js http module (4 cluster)
@@ -299,22 +308,22 @@ $ benchmark/run-benchmark benchmark/node/run 4
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   645.16us  411.18us  14.90ms   90.71%
-    Req/Sec     3.01k   685.94     5.38k    61.69%
-  120393 requests in 10.10s, 14.93MB read
-Requests/sec:  11920.05
-Transfer/sec:      1.48MB
+    Latency   200.97us  487.76us  27.56ms   99.33%
+    Req/Sec    11.07k     1.42k   21.98k    85.54%
+  441803 requests in 10.10s, 54.77MB read
+Requests/sec:  43744.19
+Transfer/sec:      5.42MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     8.15ms    4.40ms 149.51ms   98.43%
-    Req/Sec     3.15k   121.25     3.38k    80.00%
-  125509 requests in 10.01s, 15.56MB read
-Requests/sec:  12540.72
-Transfer/sec:      1.55MB
+    Latency     2.05ms  417.67us  21.24ms   86.82%
+    Req/Sec    12.25k   729.79    20.32k    75.50%
+  487426 requests in 10.04s, 60.43MB read
+Requests/sec:  48546.08
+Transfer/sec:      6.02MB
 ```
 
 ## Woo (Common Lisp, worker-num=4)
@@ -327,22 +336,22 @@ $ benchmark/run-benchmark benchmark/woo/run 4
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   502.66us  741.70us  22.38ms   99.37%
-    Req/Sec     4.01k   397.81     4.57k    57.92%
-  161072 requests in 10.10s, 19.97MB read
-Requests/sec:  15948.20
-Transfer/sec:      1.98MB
+    Latency   323.90us    2.25ms  54.48ms   98.25%
+    Req/Sec    16.33k     1.71k   20.82k    80.20%
+  656401 requests in 10.10s, 81.38MB read
+Requests/sec:  64989.82
+Transfer/sec:      8.06MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     4.73ms    4.73ms 103.79ms   96.50%
-    Req/Sec     5.79k   340.65     7.68k    76.50%
-  230976 requests in 10.03s, 28.64MB read
-Requests/sec:  23037.57
-Transfer/sec:      2.86MB
+    Latency     1.12ms    1.38ms  21.69ms   95.08%
+    Req/Sec    27.85k     2.26k   36.49k    70.75%
+  1108090 requests in 10.03s, 137.38MB read
+Requests/sec: 110528.03
+Transfer/sec:     13.70MB
 ```
 
 ## Go (GOMAXPROCS=4)
@@ -355,20 +364,20 @@ $ benchmark/run-benchmark benchmark/go/run 4
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 10 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency   501.25us    0.98ms  19.31ms   96.17%
-    Req/Sec     4.43k   531.76     6.43k    68.50%
-  176648 requests in 10.02s, 21.73MB read
-Requests/sec:  17636.86
-Transfer/sec:      2.17MB
+    Latency   112.86us  511.71us  19.42ms   99.11%
+    Req/Sec    24.50k     2.75k   31.57k    68.56%
+  984705 requests in 10.08s, 121.14MB read
+Requests/sec:  97647.04
+Transfer/sec:     12.01MB
 ```
 
 ```
 Running 10s test @ http://127.0.0.1:5000
   4 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.92ms    3.88ms  43.80ms   86.79%
-    Req/Sec     6.98k     0.97k   10.55k    69.95%
-  278553 requests in 10.05s, 34.27MB read
-Requests/sec:  27722.19
-Transfer/sec:      3.41MB
+    Latency     1.26ms    2.15ms  62.68ms   95.64%
+    Req/Sec    26.73k     3.98k   36.94k    65.75%
+  1064894 requests in 10.04s, 131.01MB read
+Requests/sec: 106036.86
+Transfer/sec:     13.05MB
 ```
