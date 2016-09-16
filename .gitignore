@@ -8,3 +8,4 @@
 .#*
 roswell/woo
 benchmark/go/hello
+benchmark/benchmark.log

@@ -1,12 +1,14 @@
 #!/bin/sh
 
+BENCHMARK_DIR=$(dirname $0)
+
 REPEAT=${REPEAT:-3}
 SERVER_PORT=${SERVER_PORT:-5000}
 THREADS=${THREADS:-4}
 CONNECTIONS=${CONNECTIONS:-10}
 
 echo "$ $@"
-$@ &
+$@ >>"$BENCHMARK_DIR/benchmark.log" 2>&1 &
 SERVER_PID=$!
 
 while true; do
