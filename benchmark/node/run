@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env nodejs
 // https://github.com/jakubkulhan/hit-server-bench/blob/master/node/main.js
 //
 // http://localhost:5000/
