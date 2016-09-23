@@ -283,11 +283,15 @@
         (wev:with-async-writing (socket)
           (write-response-headers socket status headers))
         (return-from handle-normal-response
-          (lambda (body &key (close nil))
+          (lambda (body &key (start 0 has-start) (end (length body) has-end) (close nil))
             (wev:with-async-writing (socket)
               (etypecase body
-                (string (write-string-body-chunk socket body))
-                (vector (write-body-chunk socket body)))
+                (string
+                 (write-string-body-chunk socket
+                                          (if (or has-start has-end)
+                                              (subseq body start end)
+                                              body)))
+                (vector (write-body-chunk socket body :start start :end end)))
               (when close
                 (finish-response socket *empty-chunk*))))))
 
