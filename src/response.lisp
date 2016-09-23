@@ -185,12 +185,15 @@
   (write-socket-crlf socket))
 
 (defun write-body-chunk (socket chunk &key (start 0) (end (length chunk)))
-  (check-type chunk (simple-array (unsigned-byte 8) (*)))
-  (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
-                                     #'char-code
-                                     (format nil "~X~C~C" (- end start) #\Return #\Newline)))
-  (wev:write-socket-data socket chunk :start start :end end)
-  (wev:write-socket-data socket #.(string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline))))
+  (declare (optimize speed)
+           (type fixnum start end)
+           (type (simple-array (unsigned-byte 8) (*)) chunk))
+  (unless (= start end)
+    (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
+                                       #'char-code
+                                       (format nil "~X~C~C" (- end start) #\Return #\Newline)))
+    (wev:write-socket-data socket chunk :start start :end end)
+    (wev:write-socket-data socket #.(string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline)))))
 
 (defun finish-response (socket &optional (body *empty-bytes*))
   (wev:write-socket-data socket body
