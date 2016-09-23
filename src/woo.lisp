@@ -11,6 +11,7 @@
                 :response-headers-bytes
                 :write-response-headers
                 :write-body-chunk
+                :write-string-body-chunk
                 :finish-response)
   (:import-from :woo.ev
                 :*buffer-size*
@@ -285,7 +286,7 @@
           (lambda (body &key (close nil))
             (wev:with-async-writing (socket)
               (etypecase body
-                (string (write-body-chunk socket (trivial-utf-8:string-to-utf-8-bytes body)))
+                (string (write-string-body-chunk socket body))
                 (vector (write-body-chunk socket body)))
               (when close
                 (finish-response socket *empty-chunk*))))))

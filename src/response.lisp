@@ -2,7 +2,8 @@
 (defpackage woo.response
   (:use :cl)
   (:import-from :trivial-utf-8
-                :string-to-utf-8-bytes)
+                :string-to-utf-8-bytes
+                :utf-8-byte-length)
   (:export :*empty-chunk*
            :*empty-bytes*
            :*crlf*
@@ -11,6 +12,7 @@
            :response-headers-bytes
            :write-response-headers
            :write-body-chunk
+           :write-string-body-chunk
            :start-chunked-response
            :finish-response))
 (in-package :woo.response)
@@ -193,7 +195,17 @@
                                        #'char-code
                                        (format nil "~X~C~C" (- end start) #\Return #\Newline)))
     (wev:write-socket-data socket chunk :start start :end end)
-    (wev:write-socket-data socket #.(string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline)))))
+    (wev:write-socket-data socket *crlf*)))
+
+(defun write-string-body-chunk (socket chunk)
+  (declare (optimize speed)
+           (type string chunk))
+  (unless (= 0 (length chunk))
+    (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
+                                       #'char-code
+                                       (format nil "~X~C~C" (utf-8-byte-length chunk) #\Return #\Newline)))
+    (write-socket-string socket chunk)
+    (wev:write-socket-data socket *crlf*)))
 
 (defun finish-response (socket &optional (body *empty-bytes*))
   (wev:write-socket-data socket body
