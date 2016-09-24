@@ -271,6 +271,25 @@
   (with-open-file (in path)
     (file-length in)))
 
+(defun make-streaming-writer (socket)
+  (lambda (body &key (start 0 has-start) (end nil has-end) (close nil))
+    (if body
+        (wev:with-async-writing (socket)
+          (etypecase body
+            (string
+             (write-string-body-chunk socket
+                                      (if (or has-start has-end)
+                                          (subseq body start end)
+                                          body)))
+            (vector (write-body-chunk socket body
+                                      :start start
+                                      :end (or end (length body)))))
+          (when close
+            (finish-response socket *empty-chunk*)))
+        (when close
+          (wev:with-async-writing (socket)
+            (finish-response socket *empty-chunk*))))))
+
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
         (close (or (= (http-minor-version http) 0)
@@ -283,17 +302,7 @@
         (wev:with-async-writing (socket)
           (write-response-headers socket status headers))
         (return-from handle-normal-response
-          (lambda (body &key (start 0 has-start) (end (length body) has-end) (close nil))
-            (wev:with-async-writing (socket)
-              (etypecase body
-                (string
-                 (write-string-body-chunk socket
-                                          (if (or has-start has-end)
-                                              (subseq body start end)
-                                              body)))
-                (vector (write-body-chunk socket body :start start :end end)))
-              (when close
-                (finish-response socket *empty-chunk*))))))
+          (make-streaming-writer socket)))
 
       (etypecase body
         (null
