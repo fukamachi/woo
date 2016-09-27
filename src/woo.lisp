@@ -274,7 +274,7 @@
 (defun make-streaming-writer (socket)
   (lambda (body &key (start 0 has-start) (end nil has-end) (close nil))
     (if body
-        (wev:with-async-writing (socket)
+        (wev:with-async-writing (socket :force-streaming t)
           (etypecase body
             (string
              (write-string-body-chunk socket

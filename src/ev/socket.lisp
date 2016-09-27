@@ -144,16 +144,18 @@
                                         write-cb)
   (declare (optimize speed)
            (type vector data))
-  (setf (socket-write-cb socket) write-cb)
-  (fast-write-sequence (coerce data '(simple-array (unsigned-byte 8) (*)))
-                       (socket-buffer socket)
-                       start end))
+  (when (socket-open-p socket)
+    (setf (socket-write-cb socket) write-cb)
+    (fast-write-sequence (coerce data '(simple-array (unsigned-byte 8) (*)))
+                         (socket-buffer socket)
+                         start end)))
 
 (defun write-socket-byte (socket byte &key write-cb)
   (declare (optimize speed)
            (type (unsigned-byte 8) byte))
-  (setf (socket-write-cb socket) write-cb)
-  (fast-write-byte byte (socket-buffer socket)))
+  (when (socket-open-p socket)
+    (setf (socket-write-cb socket) write-cb)
+    (fast-write-byte byte (socket-buffer socket))))
 
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)
@@ -246,6 +248,30 @@
            (setf (socket-sendfile-fd socket) nil))
          completedp)))))
 
+(defun async-write (socket)
+  (declare (optimize speed))
+  (unless (socket-open-p socket)
+    (return-from async-write t))
+
+  ;; Send from buffer
+  (unless (buffer-empty-p socket)
+    (unless (flush-buffer socket)
+      (return-from async-write nil))
+    (reset-buffer socket))
+  ;; Send a static file?
+  (when (socket-sendfile-fd socket)
+    (unless (send-file socket)
+      (return-from async-write nil)))
+
+  ;; Transfer has been completed.
+  (when (socket-write-cb socket)
+    (funcall (the function (socket-write-cb socket)) socket))
+  ;; Need to check if 'socket' is still open because it may be closed in write-cb.
+  (when (socket-open-p socket)
+    (setf (socket-write-cb socket) nil)
+    (lev:ev-io-stop *evloop* (socket-write-watcher socket)))
+  t)
+
 (define-c-callback async-write-cb :void ((evloop :pointer) (io :pointer) (events :int))
   (declare (optimize speed)
            (ignore events))
@@ -256,29 +282,16 @@
       (cffi:foreign-free io)
       (return-from async-write-cb))
 
-    ;; Send from buffer
-    (unless (buffer-empty-p socket)
-      (unless (flush-buffer socket)
-        (return-from async-write-cb))
-      (reset-buffer socket))
-    ;; Send a static file?
-    (when (socket-sendfile-fd socket)
-      (unless (send-file socket)
-        (return-from async-write-cb)))
+    (async-write socket)))
 
-    ;; Transfer has been completed.
-    (when (socket-write-cb socket)
-      (funcall (the function (socket-write-cb socket)) socket))
-    ;; Need to check if 'socket' is still open because it may be closed in write-cb.
-    (when (socket-open-p socket)
-      (setf (socket-write-cb socket) nil)
-      (lev:ev-io-stop evloop io))))
-
-(defmacro with-async-writing ((socket &key write-cb) &body body)
+(defmacro with-async-writing ((socket &key write-cb force-streaming) &body body)
   `(progn
      ,@body
      (setf (socket-write-cb ,socket) ,write-cb)
-     (lev:ev-io-start *evloop* (socket-write-watcher ,socket))))
+     ,(if force-streaming
+          `(unless (async-write ,socket)
+             (lev:ev-io-start *evloop* (socket-write-watcher ,socket)))
+          `(lev:ev-io-start *evloop* (socket-write-watcher ,socket)))))
 
 (defun send-static-file (socket fd size)
   (with-slots (sendfile-fd sendfile-size sendfile-offset) socket
