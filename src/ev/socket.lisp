@@ -143,9 +143,10 @@
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         write-cb)
   (declare (optimize speed)
-           (type (simple-array (unsigned-byte 8) (*)) data))
+           (type vector data))
   (setf (socket-write-cb socket) write-cb)
-  (fast-write-sequence data (socket-buffer socket)
+  (fast-write-sequence (coerce data '(simple-array (unsigned-byte 8) (*)))
+                       (socket-buffer socket)
                        start end))
 
 (defun write-socket-byte (socket byte &key write-cb)

@@ -168,7 +168,7 @@
   (wev:write-socket-data socket (gethash status *status-line*))
   ;; Send default headers
   (wev:write-socket-data socket #.(string-to-utf-8-bytes "Date: "))
-  (write-socket-string socket (current-rfc-1123-timestamp))
+  (write-socket-string socket (the simple-string (current-rfc-1123-timestamp)))
   (write-socket-crlf socket)
 
   (when keep-alive-p
@@ -189,11 +189,11 @@
 (defun write-body-chunk (socket chunk &key (start 0) (end (length chunk)))
   (declare (optimize speed)
            (type fixnum start end)
-           (type (simple-array (unsigned-byte 8) (*)) chunk))
+           (type vector chunk))
   (unless (= start end)
     (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
                                        #'char-code
-                                       (format nil "~X~C~C" (- end start) #\Return #\Newline)))
+                                       (format nil "~X~C~C" (the fixnum (- end start)) #\Return #\Newline)))
     (wev:write-socket-data socket chunk :start start :end end)
     (wev:write-socket-data socket *crlf*)))
 
