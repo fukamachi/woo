@@ -146,9 +146,13 @@
            (type vector data))
   (when (socket-open-p socket)
     (setf (socket-write-cb socket) write-cb)
-    (fast-write-sequence (coerce data '(simple-array (unsigned-byte 8) (*)))
-                         (socket-buffer socket)
-                         start end)))
+    (if (typep data '(simple-array (unsigned-byte 8) (*)))
+        (fast-write-sequence data
+                             (socket-buffer socket)
+                             start end)
+        (loop for i from start upto end
+              for byte of-type (unsigned-byte 8) = (aref data i)
+              do (fast-write-byte byte (socket-buffer socket))))))
 
 (defun write-socket-byte (socket byte &key write-cb)
   (declare (optimize speed)
