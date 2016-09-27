@@ -141,11 +141,12 @@
     (error 'socket-closed)))
 
 (defun write-socket-data (socket data &key (start 0) (end (length data))
-                                        write-cb)
+                                        (write-cb nil write-cb-specified-p))
   (declare (optimize speed)
            (type vector data))
   (when (socket-open-p socket)
-    (setf (socket-write-cb socket) write-cb)
+    (when write-cb-specified-p
+      (setf (socket-write-cb socket) write-cb))
     (if (typep data '(simple-array (unsigned-byte 8) (*)))
         (fast-write-sequence data
                              (socket-buffer socket)
@@ -154,11 +155,12 @@
               for byte of-type (unsigned-byte 8) = (aref data i)
               do (fast-write-byte byte (socket-buffer socket))))))
 
-(defun write-socket-byte (socket byte &key write-cb)
+(defun write-socket-byte (socket byte &key (write-cb nil write-cb-specified-p))
   (declare (optimize speed)
            (type (unsigned-byte 8) byte))
   (when (socket-open-p socket)
-    (setf (socket-write-cb socket) write-cb)
+    (when write-cb-specified-p
+      (setf (socket-write-cb socket) write-cb))
     (fast-write-byte byte (socket-buffer socket))))
 
 (declaim (inline reset-buffer))
