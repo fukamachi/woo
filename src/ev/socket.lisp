@@ -143,7 +143,8 @@
 (defun write-socket-data (socket data &key (start 0) (end (length data))
                                         (write-cb nil write-cb-specified-p))
   (declare (optimize speed)
-           (type vector data))
+           (type vector data)
+           (type fixnum start end))
   (when (socket-open-p socket)
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
@@ -151,7 +152,7 @@
         (fast-write-sequence data
                              (socket-buffer socket)
                              start end)
-        (loop for i from start upto end
+        (loop for i from start upto (1- end)
               for byte of-type (unsigned-byte 8) = (aref data i)
               do (fast-write-byte byte (socket-buffer socket))))))
 
