@@ -17,6 +17,8 @@
                 :ECONNABORTED
                 :ECONNREFUSED
                 :ECONNRESET)
+  (:import-from :woo.ev.condition
+                :socket-closed)
   (:import-from :lev
                 :ev-now
                 :ev-io

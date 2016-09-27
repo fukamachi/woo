@@ -49,7 +49,7 @@
                   :depends-on ("syscall" "llsocket")
                   :components
                   ((:file "event-loop")
-                   (:file "socket" :depends-on ("event-loop" "util"))
+                   (:file "socket" :depends-on ("event-loop" "condition" "util"))
                    (:file "tcp" :depends-on ("event-loop" "socket" "util" "condition"))
                    (:file "condition")
                    (:file "util")))

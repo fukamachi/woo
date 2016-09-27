@@ -18,6 +18,7 @@
                        description code)))))
 
 (define-condition tcp-error (woo-error) ())
-(define-condition socket-closed (tcp-error) ())
+(define-condition socket-closed (tcp-error)
+  ((description :initform "socket is already closed")))
 
 (define-condition os-error (woo-error) ())
