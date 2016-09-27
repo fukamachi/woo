@@ -25,7 +25,10 @@
    a function right next to each other."
   (let ((arg-names (loop for x in args collect (car x))))
     `(progn
+       (declaim (inline ,name))
        (defun ,name ,arg-names
          ,@body)
-       (cffi:defcallback ,name ,return-val ,args
-         (,name ,@arg-names)))))
+       (prog1
+           (cffi:defcallback ,name ,return-val ,args
+             (,name ,@arg-names))
+         (declaim (notinline ,name))))))
