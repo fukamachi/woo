@@ -374,7 +374,10 @@
            (write-socket-crlf socket)
            (wev:write-socket-data socket body)))))))
 
-(defmethod clack.socket:set-read-callback ((socket woo.ev.socket:socket) callback)
+(defmethod clack.socket:read-callback ((socket woo.ev.socket:socket))
+  (wev:socket-data socket))
+
+(defmethod (setf clack.socket:read-callback) (callback (socket woo.ev.socket:socket))
   (setf (wev:socket-data socket) callback))
 
 (defmethod clack.socket:write-sequence-to-socket ((socket woo.ev.socket:socket) data &key callback)
@@ -407,3 +410,6 @@
 (defmethod clack.socket:close-socket ((socket woo.ev.socket:socket))
   (when (woo.ev.socket:socket-open-p socket)
     (woo.ev.socket:close-socket socket)))
+
+(defmethod clack.socket:socket-async-p ((socket woo.ev.socket:socket))
+  t)

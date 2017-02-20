@@ -33,11 +33,7 @@ install:
     fi
 
   - ros install prove
-  # for Clack.Test
   - ros install fukamachi/clack
-  - ros install fukamachi/dexador
-  # for ipv6-address-p & lenient url-decode
-  - ros install fukamachi/quri
 
 before_script:
   - ros run -- --version
