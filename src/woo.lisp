@@ -381,6 +381,7 @@
   (setf (wev:socket-data socket) callback))
 
 (defmethod clack.socket:write-sequence-to-socket ((socket woo.ev.socket:socket) data &key callback)
+  (woo.ev.socket:check-socket-open socket)
   (wev:with-async-writing (socket :write-cb (and callback
                                                  (lambda (socket)
                                                    (declare (ignore socket))
@@ -388,6 +389,7 @@
     (wev:write-socket-data socket data)))
 
 (defmethod clack.socket:write-byte-to-socket ((socket woo.ev.socket:socket) byte &key callback)
+  (woo.ev.socket:check-socket-open socket)
   (wev:with-async-writing (socket :write-cb (and callback
                                                  (lambda (socket)
                                                    (declare (ignore socket))
@@ -401,6 +403,7 @@
   (wev:write-socket-byte socket byte))
 
 (defmethod clack.socket:flush-socket-buffer ((socket woo.ev.socket:socket) &key callback)
+  (woo.ev.socket:check-socket-open socket)
   (wev:with-async-writing (socket :write-cb (and callback
                                                  (lambda (socket)
                                                    (declare (ignore socket))
