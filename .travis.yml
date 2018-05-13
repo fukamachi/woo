@@ -21,7 +21,7 @@ addons:
 
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
-  - curl -L https://raw.githubusercontent.com/snmsts/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh
+  - curl -L https://raw.githubusercontent.com/roswell/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh
   # for thread-support on OS X
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
 
