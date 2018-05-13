@@ -33,6 +33,7 @@ install:
     fi
 
   - ros install prove
+  - ros install cffi
   - ros install fukamachi/clack
 
 before_script:
