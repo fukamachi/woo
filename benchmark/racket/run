@@ -1,0 +1,6 @@
+#!/bin/sh
+
+BASEDIR=$(dirname $0)
+WORKER=${1:-1}
+
+exec racket "$BASEDIR/hello.rkt"
