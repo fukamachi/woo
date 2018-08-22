@@ -15,7 +15,8 @@
 
 (defvar *signals*
   '((2 . sigint-cb)
-    (3 . sigquit-cb)))
+    (3 . sigquit-cb)
+    (15 . sigint-cb)))
 
 (cffi:defcallback sigquit-cb :void ((evloop :pointer) (signal :pointer) (events :int))
   (declare (ignore signal events))
