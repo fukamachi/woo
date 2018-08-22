@@ -39,7 +39,6 @@ before_script:
   - ros run -- --version
 
 script:
-  - ros -e '(ql:quickload :woo-test)'
   - run-prove woo-test.asd
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/woo/run; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/go/run; fi
