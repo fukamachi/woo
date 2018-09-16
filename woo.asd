@@ -17,7 +17,7 @@
                "vom"
                "alexandria"
                #+sbcl "sb-posix"
-               #+linux "uiop"
+               #+(and linux (not asdf3)) "uiop"
                #+sbcl "sb-concurrency"
                #-sbcl "cl-speedy-queue")
   :components ((:module "src"
