@@ -367,8 +367,9 @@
                  (write-socket-string
                   socket
                   (write-to-string (loop for chunk in body
-                                         for data = (list-body-chunk-to-octets chunk)
-                                         sum (length data))))
+                                         sum (if (stringp chunk)
+                                                 (utf-8-byte-length chunk)
+                                                 0))))
                  (write-socket-crlf socket)
                  (write-socket-crlf socket)
                  (loop for chunk in body
