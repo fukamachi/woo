@@ -27,6 +27,7 @@ The benchmarking environment is:
 * Quicklisp 2016-08-25
 * Node.js 4.2.6
 * Go 1.6.2
+* Racket 6.12
 * Ruby 2.3.1p112
 * Unicorn 5.1.0
 * libuv 1.8.0
@@ -35,7 +36,7 @@ The benchmarking environment is:
 ```
 $ cat /proc/version
 Linux version 4.4.0-36-generic (buildd@lcy01-01) (gcc version 5.4.0 20160609 (Ubuntu 5.4.0-6ubuntu1~16.04.2) ) #55-Ubuntu SMP Thu Aug 11 18:01:55 UTC 2016
-$ sudo apt-get install wrk nginx python2.7 python-pip pypy nodejs golang ruby ruby-dev libuv1-dev libev-dev
+$ sudo apt-get install wrk nginx python2.7 python-pip pypy nodejs golang racket ruby ruby-dev libuv1-dev libev-dev
 $ sudo apt-get install -y autotools-dev automake libcurl4-gnutls-dev curl make
 $ pip install tornado
 $ sudo gem install unicorn rack
@@ -380,4 +381,32 @@ Running 10s test @ http://127.0.0.1:5000
   1064894 requests in 10.04s, 131.01MB read
 Requests/sec: 106036.86
 Transfer/sec:     13.05MB
+```
+
+## Racket
+
+```
+$ benchmark/run-benchmark benchmark/racket/run
+```
+
+``` 
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 10 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency     6.51ms   13.02ms 147.67ms   91.74%
+    Req/Sec   561.37    131.01   808.00     64.65%
+  22335 requests in 10.06s, 3.22MB read
+Requests/sec:   2219.30
+Transfer/sec:    327.26KB
+```
+
+```
+Running 10s test @ http://127.0.0.1:5000
+  4 threads and 100 connections
+  Thread Stats   Avg      Stdev     Max   +/- Stdev
+    Latency    66.70ms   52.98ms 503.75ms   89.11%
+    Req/Sec   434.91    179.08   700.00     62.37%
+  17013 requests in 10.06s, 2.45MB read
+Requests/sec:   1691.04
+Transfer/sec:    249.36KB
 ```
