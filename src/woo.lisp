@@ -214,9 +214,10 @@
             (values host nil))))))
 
 (defun handle-request (http socket)
-  (let ((host (gethash "host" (http-headers http)))
-        (headers (http-headers http))
-        (uri (http-resource http)))
+  (let* ((headers (http-headers http))
+         (host (gethash "host" headers))
+         (forwarded-proto (gethash "x-forwarded-proto" headers))
+         (uri (http-resource http)))
     (declare (type simple-string uri))
 
     (multiple-value-bind (scheme userinfo hostname port path query fragment)
@@ -234,7 +235,8 @@
               :path-info (and path
                               (quri:url-decode path :lenient t))
               :query-string query
-              :url-scheme "http"
+              :url-scheme (or forwarded-proto
+                              "http")
               :remote-addr (socket-remote-addr socket)
               :remote-port (socket-remote-port socket)
               :request-uri uri
