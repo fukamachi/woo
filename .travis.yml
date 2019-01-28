@@ -34,14 +34,13 @@ install:
 
   - ros install prove
   - ros install fukamachi/clack
-  - ros install fukamachi/dexador
+  - ros install cffi-grovel
 
 before_script:
   - ros run -- --version
 
 script:
-  - ros -e '(ql:quickload :woo)'
-  - ros -e '(ql:quickload :woo-test)'
+  - ros -s woo-test
   - run-prove woo-test.asd
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/woo/run; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/go/run; fi

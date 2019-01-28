@@ -160,20 +160,28 @@
                              (write-to-buffer body-buffer (subseq data start end) 0 (- end start))
                              (write-to-buffer body-buffer data start end)))
                        :finish-callback
-                       (lambda ()
-                         (let ((raw-body (finalize-buffer body-buffer)))
-                           (setq body-buffer (make-smart-buffer))
-                           (let ((env (nconc (list :raw-body raw-body)
-                                             (handle-request http socket))))
-                             (handle-response http socket
-                                              (if *debug*
-                                                  (funcall *app* env)
-                                                  (if-let (res (handler-case (funcall *app* env)
-                                                                 (error (error)
-                                                                   (vom:error (princ-to-string error))
-                                                                   nil)))
-                                                    res
-                                                    '(500 nil nil)))))))))))
+                       (flet ((main (env)
+                                (handle-response http socket
+                                                 (if *debug*
+                                                     (funcall *app* env)
+                                                     (if-let (res (handler-case (funcall *app* env)
+                                                                    (error (error)
+                                                                      (vom:error (princ-to-string error))
+                                                                      nil)))
+                                                             res
+                                                             '(500 nil nil))))))
+                         (lambda ()
+                           (let ((raw-body (finalize-buffer body-buffer)))
+                             (setq body-buffer (make-smart-buffer))
+                             (let ((env (nconc (list :raw-body raw-body)
+                                               (handle-request http socket))))
+                               (if *debug*
+                                   (main env)
+                                   (handler-case (main env)
+                                     ;; Handle errors inside Woo
+                                     (error (e)
+                                       (vom:crit (princ-to-string e))
+                                       (handle-response http socket '(500 nil nil)))))))))))))
 
 (defun stop (server)
   (wev:close-tcp-server server))
@@ -290,6 +298,13 @@
           (wev:with-async-writing (socket)
             (finish-response socket *empty-chunk*))))))
 
+(defun list-body-chunk-to-octets (chunk)
+  (typecase chunk
+    (string (string-to-utf-8-bytes chunk))
+    (null)
+    (otherwise
+     (warn "Invalid data in Clack response: ~S" chunk))))
+
 (defun handle-normal-response (http socket clack-res)
   (let ((no-body '#:no-body)
         (close (or (= (http-minor-version http) 0)
@@ -331,9 +346,11 @@
              ((getf headers :content-length)
               (response-headers-bytes socket status headers (not close))
               (write-socket-crlf socket)
-              (loop for str in body
-                    do (wev:write-socket-data socket (string-to-utf-8-bytes str))))
-             (T
+              (loop for chunk in body
+                    for data = (list-body-chunk-to-octets chunk)
+                    when data
+                      do (wev:write-socket-data socket data)))
+             (t
               (cond
                 ((= (http-minor-version http) 1)
                  ;; Transfer-Encoding: chunked
@@ -341,27 +358,32 @@
                  (wev:write-socket-data socket #.(string-to-utf-8-bytes "Transfer-Encoding: chunked"))
                  (write-socket-crlf socket)
                  (write-socket-crlf socket)
-                 (loop for str in body
-                       for data = (string-to-utf-8-bytes str)
-                       do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
-                          (write-socket-crlf socket)
-                          (wev:write-socket-data socket data)
-                          (write-socket-crlf socket))
+                 (loop for chunk in body
+                       for data = (list-body-chunk-to-octets chunk)
+                       when data
+                         do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
+                            (write-socket-crlf socket)
+                            (wev:write-socket-data socket data)
+                            (write-socket-crlf socket))
                  (wev:write-socket-byte socket #.(char-code #\0))
                  (write-socket-crlf socket)
                  (write-socket-crlf socket))
-                (T
+                (t
                  ;; calculate Content-Length
                  (response-headers-bytes socket status headers (not close))
                  (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
                  (write-socket-string
                   socket
-                  (write-to-string (loop for str in body
-                                         sum (utf-8-byte-length str))))
+                  (write-to-string (loop for chunk in body
+                                         sum (if (stringp chunk)
+                                                 (utf-8-byte-length chunk)
+                                                 0))))
                  (write-socket-crlf socket)
                  (write-socket-crlf socket)
-                 (loop for str in body
-                       do (wev:write-socket-data socket (string-to-utf-8-bytes str)))))))))
+                 (loop for chunk in body
+                       for data = (list-body-chunk-to-octets chunk)
+                       when data
+                         do (wev:write-socket-data socket data))))))))
         ((vector (unsigned-byte 8))
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
