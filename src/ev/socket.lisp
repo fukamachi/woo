@@ -38,6 +38,8 @@
                 :with-pointer-to-vector-data
                 :incf-pointer
                 :foreign-free)
+  (:import-from :alexandria
+                :once-only)
   (:export :socket
            :make-socket
            :socket-read-watcher
@@ -79,7 +81,8 @@
   (buffer (make-output-buffer))
   (sendfile-fd nil :type (or null fixnum))
   (sendfile-size nil :type (or null integer))
-  (sendfile-offset 0 :type (or null integer)))
+  (sendfile-offset 0 :type (or null integer))
+  (thread (bt:current-thread)))
 
 (defun buffer-empty-p (socket)
   (declare (optimize (speed 3) (safety 0) (debug 0)))
@@ -292,13 +295,17 @@
     (async-write socket)))
 
 (defmacro with-async-writing ((socket &key write-cb force-streaming) &body body)
-  `(progn
-     ,@body
-     (setf (socket-write-cb ,socket) ,write-cb)
-     ,(if force-streaming
-          `(unless (async-write ,socket)
-             (lev:ev-io-start *evloop* (socket-write-watcher ,socket)))
-          `(lev:ev-io-start *evloop* (socket-write-watcher ,socket)))))
+  (once-only (socket)
+    `(progn
+       ,@body
+       (setf (socket-write-cb ,socket) ,write-cb)
+       (bt:interrupt-thread
+        (socket-thread ,socket)
+        (lambda ()
+          ,(if force-streaming
+               `(unless (async-write ,socket)
+                  (lev:ev-io-start *evloop* (socket-write-watcher ,socket)))
+               `(lev:ev-io-start *evloop* (socket-write-watcher ,socket))))))))
 
 (defun send-static-file (socket fd size)
   (with-slots (sendfile-fd sendfile-size sendfile-offset) socket
