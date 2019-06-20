@@ -360,7 +360,7 @@
                  (write-socket-crlf socket)
                  (loop for chunk in body
                        for data = (list-body-chunk-to-octets chunk)
-                       when data
+                       when (and data (/= 0 (length data)))
                          do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
                             (write-socket-crlf socket)
                             (wev:write-socket-data socket data)
