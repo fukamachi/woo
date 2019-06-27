@@ -12,7 +12,7 @@ env:
     - ROSWELL_INSTALL_DIR=$HOME/.roswell
     - WRK_VERSION=4.0.2
   matrix:
-    - LISP=sbcl-bin
+    - LISP=sbcl
 
 addons:
   apt:
@@ -22,13 +22,12 @@ addons:
 install:
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew install libev; fi
   - curl -L https://raw.githubusercontent.com/snmsts/roswell/$ROSWELL_BRANCH/scripts/install-for-ci.sh | sh
-  # for thread-support on OS X
-  - if [ "$TRAVIS_OS_NAME" = "osx" ]; then ros install sbcl; fi
 
   # wrk, go for benchmarking
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       curl -L "https://github.com/wg/wrk/archive/$WRK_VERSION.tar.gz" | tar xzf -;
-      (cd "wrk-$WRK_VERSION/" && make && cp wrk ~/.roswell/bin);
+      mkdir -p "$ROSWELL_INSTALL_DIR/bin";
+      (cd "wrk-$WRK_VERSION/" && make && cp wrk "$ROSWELL_INSTALL_DIR/bin");
       sudo apt-get install golang;
     fi
 
