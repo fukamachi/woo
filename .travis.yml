@@ -28,7 +28,8 @@ install:
   # wrk, go for benchmarking
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then
       curl -L "https://github.com/wg/wrk/archive/$WRK_VERSION.tar.gz" | tar xzf -;
-      (cd "wrk-$WRK_VERSION/" && make && cp wrk ~/.roswell/bin);
+      mkdir -p "$ROSWELL_INSTALL_DIR/bin";
+      (cd "wrk-$WRK_VERSION/" && make && cp wrk "$ROSWELL_INSTALL_DIR/bin");
       sudo apt-get install golang;
     fi
 
