@@ -11,7 +11,8 @@
 
 (plan 1)
 
-(let ((clack.test:*clackup-additional-args* '(:address "::")))
+(let ((clack.test:*clackup-additional-args* '(:address "::"))
+      (clack.test:*clack-test-handler* :woo))
   (subtest-app "IPv6"
       (lambda (env)
         (declare (ignore env))
