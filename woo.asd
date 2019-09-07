@@ -22,7 +22,7 @@
                #-sbcl "cl-speedy-queue")
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("ev" "response" "worker" "signal" "specials"))
+                ((:file "woo" :depends-on ("ev" "response" "worker" "signal" "specials" "util"))
                  (:file "response" :depends-on ("ev"))
                  (:file "ev" :depends-on ("ev-packages"))
                  (:file "worker" :depends-on ("ev" "queue" "specials"))
@@ -50,6 +50,7 @@
                    (:cffi-grovel-file "types")
                    (:file "main")))
                  (:file "signal" :depends-on ("ev" "worker" "specials"))
-                 (:file "specials"))))
+                 (:file "specials")
+                 (:file "util"))))
   :description "An asynchronous HTTP server written in Common Lisp"
   :in-order-to ((test-op (test-op "woo-test"))))

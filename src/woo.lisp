@@ -20,6 +20,8 @@
                 :socket-remote-addr
                 :socket-remote-port
                 :with-sockaddr)
+  (:import-from :woo.util
+                :integer-string-p)
   (:import-from :quri
                 :uri
                 :uri-path
@@ -241,7 +243,13 @@
               :clack.streaming t
               :clack.nonblocking t
               :clack.io socket
-              :content-length (gethash "content-length" headers)
+              :content-length (let ((content-length (gethash "content-length" headers)))
+                                (etypecase content-length
+                                  (string (if (integer-string-p content-length)
+                                              (parse-integer content-length)
+                                              (error "Invalid Content-Length header: ~S" content-length)))
+                                  (integer content-length)
+                                  (null nil)))
               :content-type (gethash "content-type" headers)
               :headers headers)))))
 
