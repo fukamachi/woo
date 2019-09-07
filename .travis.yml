@@ -34,6 +34,7 @@ install:
   - ros install prove
   - ros install fukamachi/clack
   - ros install cffi-grovel
+  - ros install fukamachi/fast-http/stop-parse-number-headers
 
 before_script:
   - ros run -- --version
