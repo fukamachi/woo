@@ -32,9 +32,10 @@ install:
     fi
 
   - ros install prove
-  - ros install fukamachi/clack
   - ros install cffi-grovel
-  - ros install fukamachi/fast-http/stop-parse-number-headers
+  - ros install fukamachi/fast-http
+  - ros install fukamachi/clack
+  - ros install fukamachi/dexador
 
 before_script:
   - ros run -- --version
