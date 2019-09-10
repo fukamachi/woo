@@ -1,6 +1,8 @@
 (in-package :cl-user)
 (defpackage woo-test
-  (:use :cl))
+  (:use :cl
+        :rove))
 (in-package :woo-test)
 
-(clack.test.suite:run-server-tests :woo)
+(deftest woo-server-tests
+  (clack.test.suite:run-server-tests :woo))

@@ -31,7 +31,7 @@ install:
       sudo apt-get install golang;
     fi
 
-  - ros install prove
+  - ros install rove
   - ros install cffi-grovel
   - ros install fukamachi/fast-http
   - ros install fukamachi/clack
@@ -42,6 +42,6 @@ before_script:
 
 script:
   - ros -s woo-test
-  - run-prove woo-test.asd
+  - rove woo-test.asd
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/woo/run; fi
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then benchmark/run-benchmark benchmark/go/run; fi
