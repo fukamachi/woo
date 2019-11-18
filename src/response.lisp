@@ -98,7 +98,7 @@
               code
               status-text
               #\Return
-              #\Newline))))
+              #\Linefeed))))
 
 (loop for status from 100 to 510
       for status-line = (http/1.1 status)
@@ -108,14 +108,14 @@
 
 (defvar *empty-chunk*
   #.(trivial-utf-8:string-to-utf-8-bytes (format nil "0~C~C~C~C"
-                                                 #\Return #\Newline
-                                                 #\Return #\Newline)))
+                                                 #\Return #\Linefeed
+                                                 #\Return #\Linefeed)))
 
 (defvar *empty-bytes*
   #.(trivial-utf-8:string-to-utf-8-bytes ""))
 
 (defvar *crlf*
-  (trivial-utf-8:string-to-utf-8-bytes (format nil "~C~C" #\Return #\Newline)))
+  (trivial-utf-8:string-to-utf-8-bytes (format nil "~C~C" #\Return #\Linefeed)))
 
 (declaim (inline write-socket-string write-socket-crlf))
 
@@ -190,7 +190,7 @@
     (wev:write-socket-data
      socket
      #.(string-to-utf-8-bytes
-        (format nil "Connection: keep-alive~C~C" #\Return #\Newline))))
+        (format nil "Connection: keep-alive~C~C" #\Return #\Linefeed))))
 
   (loop for (k v) on headers by #'cddr
         when v
@@ -208,7 +208,7 @@
   (unless (= start end)
     (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
                                        #'char-code
-                                       (format nil "~X~C~C" (the fixnum (- end start)) #\Return #\Newline)))
+                                       (format nil "~X~C~C" (the fixnum (- end start)) #\Return #\Linefeed)))
     (wev:write-socket-data socket chunk :start start :end end)
     (wev:write-socket-data socket *crlf*)))
 
@@ -218,7 +218,7 @@
   (unless (= 0 (length chunk))
     (wev:write-socket-data socket (map '(simple-array (unsigned-byte 8) (*))
                                        #'char-code
-                                       (format nil "~X~C~C" (utf-8-byte-length chunk) #\Return #\Newline)))
+                                       (format nil "~X~C~C" (utf-8-byte-length chunk) #\Return #\Linefeed)))
     (write-socket-string socket chunk)
     (wev:write-socket-data socket *crlf*)))
 
