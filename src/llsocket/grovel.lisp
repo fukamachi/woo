@@ -1,4 +1,4 @@
-#+freebsd
+#+(or bsd freebsd)
 (progn
   (include "time.h")
   (include "sys/time.h"))

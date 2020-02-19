@@ -106,7 +106,7 @@
   (len :pointer)
   (hdtr :pointer)
   (flags :int))
-#+freebsd
+#+(or freebsd bsd)
 (defcfun (%sendfile "sendfile") ssize-t
   (infd   :int)
   (outfd  :int)
@@ -129,12 +129,12 @@
       (if (= retval -1)
           -1
           (cffi:mem-aref len 'off-t))))
-  #+freebsd
+  #+(or freebsd bsd)
   (cffi:with-foreign-object (sbytes 'off-t)
     (let ((retval (%sendfile infd outfd offset nbytes (cffi:null-pointer) sbytes +SF-MNOWAIT+)))
       (declare (type fixnum retval))
       (if (= retval -1)
           -1
           (cffi:mem-aref sbytes 'off-t))))
-  #-(or linux darwin freebsd)
+  #-(or linux darwin freebsd bsd)
   (error "sendfile is not supported"))
