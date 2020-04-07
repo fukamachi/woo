@@ -106,7 +106,7 @@
   (len :pointer)
   (hdtr :pointer)
   (flags :int))
-#+(or freebsd bsd)
+#+(and (or freebsd bsd) (not darwin))
 (defcfun (%sendfile "sendfile") ssize-t
   (infd   :int)
   (outfd  :int)
@@ -129,7 +129,7 @@
       (if (= retval -1)
           -1
           (cffi:mem-aref len 'off-t))))
-  #+(or freebsd bsd)
+  #+(and (or freebsd bsd) (not darwin))
   (cffi:with-foreign-object (sbytes 'off-t)
     (let ((retval (%sendfile infd outfd offset nbytes (cffi:null-pointer) sbytes +SF-MNOWAIT+)))
       (declare (type fixnum retval))
