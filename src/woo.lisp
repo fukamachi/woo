@@ -20,9 +20,6 @@
                 :socket-remote-addr
                 :socket-remote-port
                 :with-sockaddr)
-  (:import-from :woo.ev.condition
-		:woo-error
-		:socket-closed)
   (:import-from :woo.util
                 :integer-string-p)
   (:import-from :quri
@@ -141,18 +138,31 @@
                                           :content-length (length body)))
             (wev:write-socket-data socket body)))))))
 
-(define-condition invalid-http-version (woo-error)
-  ((description :initform "invalid http version")
-   (code :initform 400)))
+(define-condition woo-simple-error (simple-error)
+  ((description :initarg :description)
+   (code :initarg :code
+         :initform nil))
+  (:report (lambda (condition stream)
+             (with-slots (description code) condition
+               (format stream
+                       "~A~:[~;~:* (Code: ~A)~]"
+                       description code)))))
+
+(define-condition invalid-http-version (woo-simple-error)
+  ())
+
 
 (defun http-version-keyword (major minor)
   (unless (= major 1)
-    (error 'invalid-http-version))
+    (error 'invalid-http-version :description "Major http version component invalid" :code 400)
+    )
 
   (case minor
     (1 :HTTP/1.1)
     (0 :HTTP/1.0)
-    (otherwise (error 'invalid-http-version))))
+    (otherwise
+     (error 'invalid-http-version :description "Minor http version component invalid" :code 400)
+     )))
 
 (defun setup-parser (socket)
   (let ((http (make-http-request))
