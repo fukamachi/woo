@@ -20,6 +20,9 @@
                 :socket-remote-addr
                 :socket-remote-port
                 :with-sockaddr)
+  (:import-from :woo.ev.condition
+		:woo-error
+		:socket-closed)
   (:import-from :woo.util
                 :integer-string-p)
   (:import-from :quri
@@ -137,16 +140,6 @@
                                     (list :connection "close"
                                           :content-length (length body)))
             (wev:write-socket-data socket body)))))))
-
-#|(define-condition woo-error (simple-error)
-  ((description :initarg :description)
-   (code :initarg :code
-         :initform nil))
-  (:report (lambda (condition stream)
-             (with-slots (description code) condition
-               (format stream
-                       "~A~:[~;~:* (Code: ~A)~]"
-                       description code)))))|#
 
 (define-condition invalid-http-version (woo-error)
   ((description :initform "invalid http version")
