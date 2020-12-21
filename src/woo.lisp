@@ -138,7 +138,7 @@
                                           :content-length (length body)))
             (wev:write-socket-data socket body)))))))
 
-(define-condition woo-error (simple-error)
+#|(define-condition woo-error (simple-error)
   ((description :initarg :description)
    (code :initarg :code
          :initform nil))
@@ -146,9 +146,11 @@
              (with-slots (description code) condition
                (format stream
                        "~A~:[~;~:* (Code: ~A)~]"
-                       description code)))))
+                       description code)))))|#
 
-(define-condition invalid-http-version (woo-error) ())
+(define-condition invalid-http-version (woo-error)
+  ((description :initform "invalid http version")
+   (code :initform 400)))
 
 (defun http-version-keyword (major minor)
   (unless (= major 1)
