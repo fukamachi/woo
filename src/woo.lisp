@@ -155,7 +155,8 @@
 (defun http-version-keyword (major minor)
   (unless (= major 1)
     (print "Http major version component invalid")
-    ;(error 'invalid-http-version :description "Major http version component invalid" :code 400)
+					;(error 'invalid-http-version :description "Major http version component invalid" :code 400)
+    nil
     )
 
   (case minor
@@ -163,7 +164,8 @@
     (0 :HTTP/1.0)
     (otherwise
      (print "Http minor version component invalid")
-     ;(error 'invalid-http-version :description "Minor http version component invalid" :code 400)
+					;(error 'invalid-http-version :description "Minor http version component invalid" :code 400)
+     nil
      )))
 
 (defun setup-parser (socket)
