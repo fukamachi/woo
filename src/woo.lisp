@@ -233,8 +233,10 @@
               :server-name server-name
               :server-port (or server-port 80)
               :server-protocol (http-version-keyword (http-major-version http) (http-minor-version http))
-              :path-info (and path
-                              (quri:url-decode path :lenient t))
+              :path-info (if (and (stringp path)
+                                  (string/= path ""))
+                             (quri:url-decode path :lenient t)
+                             "/")
               :query-string query
               :url-scheme "http"
               :remote-addr (socket-remote-addr socket)
