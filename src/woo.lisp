@@ -138,17 +138,35 @@
                                           :content-length (length body)))
             (wev:write-socket-data socket body)))))))
 
-(define-condition woo-error (simple-error) ())
-(define-condition invalid-http-version (woo-error) ())
+(define-condition woo-simple-error (simple-error)
+  ((description :initarg :description)
+   (code :initarg :code
+         :initform nil))
+  (:report (lambda (condition stream)
+             (with-slots (description code) condition
+               (format stream
+                       "~A~:[~;~:* (Code: ~A)~]"
+                       description code)))))
+
+(define-condition invalid-http-version (woo-simple-error)
+  ())
+
 
 (defun http-version-keyword (major minor)
   (unless (= major 1)
-    (error 'invalid-http-version))
+    (print "Http major version component invalid")
+					;(error 'invalid-http-version :description "Major http version component invalid" :code 400)
+    nil
+    )
 
   (case minor
     (1 :HTTP/1.1)
     (0 :HTTP/1.0)
-    (otherwise (error 'invalid-http-version))))
+    (otherwise
+     (print "Http minor version component invalid")
+					;(error 'invalid-http-version :description "Minor http version component invalid" :code 400)
+     nil
+     )))
 
 (defun setup-parser (socket)
   (let ((http (make-http-request))
