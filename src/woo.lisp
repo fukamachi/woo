@@ -141,14 +141,18 @@
 (define-condition woo-error (simple-error) ())
 (define-condition invalid-http-version (woo-error) ())
 
+(defun error-invalid-http-version (major minor)
+  (error 'invalid-http-version
+           :format-control "INVALID-HTTP-VERSION: major ~A minor ~A"
+           :format-arguments (list major minor)))
+  
 (defun http-version-keyword (major minor)
   (unless (= major 1)
-    (error 'invalid-http-version))
-
+    (error-invalid-http-version major minor))
   (case minor
     (1 :HTTP/1.1)
     (0 :HTTP/1.0)
-    (otherwise (error 'invalid-http-version))))
+    (otherwise (error-invalid-http-version major minor))))
 
 (defun setup-parser (socket)
   (let ((http (make-http-request))
@@ -173,17 +177,18 @@
                                                              res
                                                              '(500 nil nil))))))
                          (lambda ()
-                           (let ((raw-body (finalize-buffer body-buffer)))
-                             (setq body-buffer (make-smart-buffer))
-                             (let ((env (nconc (list :raw-body raw-body)
-                                               (handle-request http socket))))
-                               (if *debug*
-                                   (main env)
-                                   (handler-case (main env)
-                                     ;; Handle errors inside Woo
-                                     (error (e)
-                                       (vom:crit (princ-to-string e))
-                                       (handle-response http socket '(500 nil nil)))))))))))))
+                           (block result
+                             (let ((raw-body (finalize-buffer body-buffer)))
+                               (setq body-buffer (make-smart-buffer))
+                               (handler-bind
+                                   ((error ;; handle errors inside woo
+                                      (lambda (e)
+                                        (unless *debug*
+                                          (vom:crit (princ-to-string e))
+                                          (return-from result (handle-response http socket '(500 nil nil)))))))
+                                 (let ((env (nconc (list :raw-body raw-body)
+                                                   (handle-request http socket))))
+                                   (main env)))))))))))
 
 (defun stop (server)
   (wev:close-tcp-server server))
