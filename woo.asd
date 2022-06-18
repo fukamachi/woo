@@ -14,6 +14,7 @@
                "fast-io"
                "smart-buffer"
                "trivial-utf-8"
+               "trivial-mimes"
                "vom"
                "alexandria"
                #+sbcl "sb-posix"

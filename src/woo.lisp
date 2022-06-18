@@ -145,7 +145,7 @@
   (error 'invalid-http-version
            :format-control "INVALID-HTTP-VERSION: major ~A minor ~A"
            :format-arguments (list major minor)))
-  
+
 (defun http-version-keyword (major minor)
   (unless (= major 1)
     (error-invalid-http-version major minor))
@@ -348,6 +348,8 @@
                       #-(or sbcl ccl) (file-size body)))
            (unless (getf headers :content-length)
              (setf (getf headers :content-length) size))
+           (unless (getf headers :content-type)
+             (setf (getf headers :content-type) (mimes:mime body)))
            (wev:with-async-writing (socket :write-cb (and close
                                                           (lambda (socket)
                                                             (wev:close-socket socket))))
