@@ -58,6 +58,7 @@
 
 (defvar *default-backlog-size* 128)
 (defvar *default-worker-num* nil)
+(defvar *stream-chunk-size* (* 1024 1024))
 
 (defun run (app &key (debug t)
                   (port 5000) (address "127.0.0.1")
@@ -341,19 +342,6 @@
            (unless (= status 304)
              (setf (getf headers :content-length) 0))
            (write-response-headers socket status headers (not close))))
-        ;; this works
-        ;; (stream
-        ;;  (wev:with-async-writing (socket :write-cb (and close
-        ;;                                                 (lambda (socket)
-        ;;                                                   (wev:close-socket socket))))
-        ;;    (response-headers-bytes socket status headers (not close))
-        ;;    (unless (getf headers :content-length)
-        ;;      (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
-        ;;      (write-socket-string socket (write-to-string 4))
-        ;;      (write-socket-crlf socket))
-        ;;    (write-socket-crlf socket)
-        ;;    ;; (wev:write-socket-data socket #(70 85 67 75))))
-        ;;    (wev:write-socket-data socket #(70 85 67 75))))
         (stream
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
@@ -363,42 +351,21 @@
            (write-socket-crlf socket)
            (write-socket-crlf socket)
            
-           (let* ((is-complete nil)
-                  (buff-size 100)
-                  (buffer (make-array buff-size :element-type '(unsigned-byte 8))))
-             (loop while (not is-complete)
-                   do (let ((read-size (read-sequence buffer body)))
-                        (write-socket-string socket
-                                             (the simple-string (format nil "~X" read-size)))
-                        (write-socket-crlf socket)
-                        (wev:write-socket-data socket buffer :start 0 :end read-size)
-                        (write-socket-crlf socket)
-                        (when (< read-size buff-size)
-                          (setq is-complete t)))))
-
-           ;; (write-socket-string socket (the simple-string (format nil "~X" 4)))
-           ;; (write-socket-crlf socket)
-           ;; (wev:write-socket-data socket #(70 85 67 75))
-           ;; (write-socket-crlf socket)
-
-           ;; (write-socket-string socket (the simple-string (format nil "~X" 4)))
-           ;; (write-socket-crlf socket)
-           ;; (wev:write-socket-data socket #(70 85 67 70))
-           ;; (write-socket-crlf socket)
-
-           ;; (loop for chunk in body
-           ;;       for data = (list-body-chunk-to-octets chunk)
-           ;;       when (and data (/= 0 (length data)))
-           ;;         do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
-           ;;            (write-socket-crlf socket)
-           ;;            (wev:write-socket-data socket data)
-           ;;            (write-socket-crlf socket))
+           (loop with buffer = (make-array *stream-chunk-size*
+                                           :element-type '(unsigned-byte 8))
+                 do (let ((read-size (read-sequence buffer body)))
+                      (print `(in-woo-stream-writer read-size ,read-size max-size ,*stream-chunk-size*))
+                      (write-socket-string socket
+                                           (the simple-string (format nil "~X" read-size)))
+                      (write-socket-crlf socket)
+                      (wev:write-socket-data socket buffer :start 0 :end read-size)
+                      (write-socket-crlf socket)
+                      (when (< read-size *stream-chunk-size*)
+                        (return))))
+                    
            (wev:write-socket-byte socket #.(char-code #\0))
            (write-socket-crlf socket)
-           (write-socket-crlf socket))
-         
-         )
-
+           (write-socket-crlf socket)))
         (pathname
          (let* ((fd (wsys:open body))
                 (size #+(or sbcl ccl) (fd-file-size fd)
