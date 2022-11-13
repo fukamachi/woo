@@ -334,6 +334,7 @@
           (write-response-headers socket status headers))
         (return-from handle-normal-response
           (make-streaming-writer socket)))
+
       (etypecase body
         (null
          (wev:with-async-writing (socket :write-cb (and close
