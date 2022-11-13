@@ -351,11 +351,10 @@
            (wev:write-socket-data socket #.(string-to-utf-8-bytes "Transfer-Encoding: chunked"))
            (write-socket-crlf socket)
            (write-socket-crlf socket)
-           
+
            (loop with buffer = (make-array *stream-chunk-size*
                                            :element-type '(unsigned-byte 8))
                  do (let ((read-size (read-sequence buffer body)))
-                      (print `(in-woo-stream-writer read-size ,read-size max-size ,*stream-chunk-size*))
                       (write-socket-string socket
                                            (the simple-string (format nil "~X" read-size)))
                       (write-socket-crlf socket)
@@ -363,7 +362,7 @@
                       (write-socket-crlf socket)
                       (when (< read-size *stream-chunk-size*)
                         (return))))
-                    
+
            (wev:write-socket-byte socket #.(char-code #\0))
            (write-socket-crlf socket)
            (write-socket-crlf socket)))
