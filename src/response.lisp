@@ -129,7 +129,10 @@
   (wev:write-socket-data socket *crlf*))
 
 (declaim (type (simple-array character (29)) *date-header*))
-(defvar *date-header* "Thu, 01 Jan 1970 00:00:00 GMT")
+(defvar *date-header*
+  (make-array 29
+              :element-type 'character
+              :initial-contents "Thu, 01 Jan 1970 00:00:00 GMT"))
 
 (declaim (inline integer-to-character))
 (defun integer-to-character (int)
