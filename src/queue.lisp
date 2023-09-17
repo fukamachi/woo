@@ -17,16 +17,16 @@
 (progn
   (defstruct queue
     (raw-queue (cl-speedy-queue:make-queue 128))
-    (lock (bt:make-lock)))
+    (lock (bt2:make-lock)))
 
   (defun enqueue (object queue)
     (with-slots (raw-queue lock) queue
-      (bt:with-lock-held (lock)
+      (bt2:with-lock-held (lock)
         (cl-speedy-queue:enqueue object raw-queue))))
 
   (defun dequeue (queue)
     (with-slots (raw-queue lock) queue
-      (bt:with-lock-held (lock)
+      (bt2:with-lock-held (lock)
         (cl-speedy-queue:dequeue raw-queue))))
 
   (defun queue-empty-p (queue)

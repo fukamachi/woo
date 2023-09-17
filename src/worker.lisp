@@ -46,7 +46,7 @@
   (vom:debug "[~D] Killing a worker..." (worker-id worker))
   (with-slots (status thread) worker
     (setf status :stopping)
-    (bt:destroy-thread thread)))
+    (bt2:destroy-thread thread)))
 
 (cffi:defcallback worker-dequeue :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop listener events))
@@ -88,19 +88,19 @@
          (worker (%make-worker :dequeue-async dequeue-async
                                :stop-async stop-async
                                :process-fn process-fn))
-         (worker-lock (bt:make-lock)))
+         (worker-lock (bt2:make-lock)))
     (lev:ev-async-init dequeue-async 'worker-dequeue)
     (lev:ev-async-init stop-async 'worker-stop)
     (setf (worker-thread worker)
-          (bt:make-thread
+          (bt2:make-thread
            (lambda ()
-             (bt:acquire-lock worker-lock)
+             (bt2:acquire-lock worker-lock)
              (let ((*worker* worker))
                (wev:with-sockaddr
                  (unwind-protect
                       (wev:with-event-loop ()
                         (setf (worker-evloop worker) *evloop*)
-                        (bt:release-lock worker-lock)
+                        (bt2:release-lock worker-lock)
                         (lev:ev-async-start *evloop* dequeue-async)
                         (lev:ev-async-start *evloop* stop-async))
                    (unless (eq (worker-status worker) :stopping)
@@ -111,7 +111,7 @@
            :initial-bindings (default-thread-bindings)
            :name "woo-worker"))
     (sleep 0.1)
-    (bt:acquire-lock worker-lock)
+    (bt2:acquire-lock worker-lock)
     worker))
 
 (defstruct (cluster (:constructor %make-cluster
