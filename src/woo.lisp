@@ -289,7 +289,10 @@
     (unless successp
       (error "'fstat' failed"))
     size))
-#-(or sbcl ccl)
+#+lispworks
+(defun file-size (path)
+  (sys:file-size path))
+#-(or sbcl ccl lispworks)
 (defun file-size (path)
   (with-open-file (in path)
     (file-length in)))
@@ -344,8 +347,9 @@
            (write-response-headers socket status headers (not close))))
         (pathname
          (let* ((fd (wsys:open body))
-                (size #+(or sbcl ccl) (fd-file-size fd)
-                      #-(or sbcl ccl) (file-size body)))
+                (size #+lispworks (sys:file-size body)
+                      #+(or sbcl ccl) (fd-file-size fd)
+                      #-(or sbcl ccl lispworks) (file-size body)))
            (unless (getf headers :content-length)
              (setf (getf headers :content-length) size))
            (unless (getf headers :content-type)

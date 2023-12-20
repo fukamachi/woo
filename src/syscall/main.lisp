@@ -81,12 +81,13 @@
 ;; errno(3) is not a C function in some environments (ex. Mac).
 ;; libfixposix can be a workaround for it, but I don't like to add a dependency on it
 ;; just for it.
-#+(or sbcl ccl)
+#+(or sbcl ccl lispworks)
 (declaim (ftype (function () fixnum) errno))
 (defun errno ()
   #+sbcl (sb-impl::get-errno)
   #+ccl (ccl::%get-errno)
-  #-(or sbcl ccl) nil)
+  #+lispworks (lw:errno-value)
+  #-(or sbcl ccl lispworks) nil)
 
 (defcfun (getpid "getpid") pid-t)
 
