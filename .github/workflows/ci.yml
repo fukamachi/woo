@@ -1,0 +1,28 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: ${{ matrix.lisp }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lisp: [sbcl-bin]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Roswell
+        env:
+          LISP: ${{ matrix.lisp }}
+          ROSWELL_INSTALL_DIR: /usr
+        run: |
+          curl -L https://raw.githubusercontent.com/roswell/roswell/master/scripts/install-for-ci.sh | sh
+      - name: Install Rove
+        run: ros install rove
+      - name: Run tests
+        env:
+          LISP: ${{ matrix.lisp }}
+        run: |
+          PATH="~/.roswell/bin:$PATH"
+          rove woo-test.asd
