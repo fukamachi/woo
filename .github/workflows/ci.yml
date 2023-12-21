@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Install dependencies from APT
+        run: sudo apt-get install -y libev-dev gcc libc6-dev
       - name: Install Roswell
         env:
           LISP: ${{ matrix.lisp }}
