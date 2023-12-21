@@ -9,3 +9,6 @@
 roswell/woo
 benchmark/go/hello
 benchmark/benchmark.log
+.qlot/
+qlfile
+qlfile.lock
