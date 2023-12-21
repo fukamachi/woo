@@ -1,6 +1,6 @@
 # Woo
 
-[![Build Status](https://travis-ci.org/fukamachi/woo.svg?branch=master)](https://travis-ci.org/fukamachi/woo)
+[![CI](https://github.com/fukamachi/woo/actions/workflows/ci.yml/badge.svg)](https://github.com/fukamachi/woo/actions/workflows/ci.yml)
 
 Woo is a fast non-blocking HTTP server built on top of [libev](http://software.schmorp.de/pkg/libev.html). Although Woo is written in Common Lisp, it aims to be the fastest web server written in any programming language.
 
