@@ -264,10 +264,20 @@
 ;;
 ;; Handling responses
 
+(deftype http-status ()
+  '(integer 100 599))
+
+(deftype http-body ()
+  '(or list (vector (unsigned-byte 8)) pathname))
+
+(deftype clack-response ()
+  '(cons http-status (cons list (or (cons http-body null)
+                                 null))))
+
 (defun handle-response (http socket clack-res)
   (handler-case
       (etypecase clack-res
-        (list (handle-normal-response http socket clack-res))
+        (clack-response (handle-normal-response http socket clack-res))
         (function (funcall clack-res (lambda (clack-res)
                                        (handler-case
                                            (handle-normal-response http socket clack-res)
