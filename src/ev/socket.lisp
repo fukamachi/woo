@@ -76,7 +76,7 @@
   (write-cb nil :type (or null function))
   (open-p t :type boolean)
 
-  (buffer (make-output-buffer))
+  (buffer (make-output-buffer #+lispworks :output #+lispworks :static))
   (sendfile-fd nil :type (or null fixnum))
   (sendfile-size nil :type (or null integer))
   (sendfile-offset 0 :type (or null integer)))
