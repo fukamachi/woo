@@ -20,7 +20,8 @@
                #+sbcl "sb-posix"
                #+(and linux (not asdf3)) "uiop"
                #+sbcl "sb-concurrency"
-               #-sbcl "cl-speedy-queue")
+               #-sbcl "cl-speedy-queue"
+               "cl+ssl")
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response" "worker" "signal" "specials" "util"))

@@ -60,10 +60,13 @@
 (defvar *default-worker-num* nil)
 
 (defun run (app &key (debug t)
-                  (port 5000) (address "127.0.0.1")
-                  listen ;; UNIX domain socket
-                  (backlog *default-backlog-size*) fd
-                  (worker-num *default-worker-num*))
+                     (port 5000) (address "127.0.0.1")
+                     listen ;; UNIX domain socket
+                     (backlog *default-backlog-size*) fd
+                     (worker-num *default-worker-num*)
+                     ssl-key-file
+                     ssl-cert-file
+                     ssl-key-password)
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
@@ -78,6 +81,16 @@
         (*debug* debug)
         (*listener* nil))
     (labels ((start-socket (socket)
+               (when (and ssl-key-file ssl-cert-file)
+                 (let ((ssl-stream (woo.ev.tcp::make-ssl-stream (woo.ev.socket::socket-fd socket))))
+                   (setf (woo.ev.socket:socket-ssl-stream socket) ssl-stream)
+                   (setf (cl+ssl::ssl-stream-certificate ssl-stream) ssl-cert-file
+                         (cl+ssl::ssl-stream-key ssl-stream) ssl-key-file)
+                   (cl+ssl::with-pem-password ((or ssl-key-password ""))
+                     (cl+ssl::install-key-and-cert
+                      (cl+ssl::ssl-stream-handle ssl-stream)
+                      ssl-key-file
+                      ssl-cert-file))))
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
@@ -119,10 +132,22 @@
                                                 :backlog backlog
                                                 :fd fd
                                                 :sockopt wsock:+SO-REUSEADDR+)))
-                     (wev:close-tcp-server *listener*))))))
-      (if worker-num
-          (start-multithread-server)
-          (start-singlethread-server)))))
+                     (wev:close-tcp-server *listener*)))))
+             (main ()
+               (if worker-num
+                   (start-multithread-server)
+                   (start-singlethread-server))))
+      (when ssl-key-file
+        (setf ssl-key-file
+              (uiop:native-namestring
+               (or (probe-file ssl-key-file)
+                   (error "SSL private key file '~A' does not exist." ssl-key-file)))))
+      (when ssl-cert-file
+        (setf ssl-cert-file
+              (uiop:native-namestring
+               (or (probe-file ssl-cert-file)
+                   (error "SSL certificate '~A' does not exist." ssl-cert-file)))))
+      (main))))
 
 (defun read-cb (socket data &key (start 0) (end (length data)))
   (let ((parser (wev:socket-data socket)))

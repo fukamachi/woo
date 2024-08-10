@@ -49,6 +49,7 @@
            :socket-data
            :socket-read-cb
            :socket-open-p
+           :socket-ssl-stream
            :check-socket-open
 
            :write-socket-data
@@ -74,6 +75,7 @@
   (tcp-read-cb nil :type symbol)
   (read-cb nil :type (or null function))
   (write-cb nil :type (or null function))
+  (ssl-stream nil :type (or null stream))
   (open-p t :type boolean)
 
   (buffer (make-output-buffer #+lispworks :output #+lispworks :static))
@@ -148,13 +150,18 @@
   (when (socket-open-p socket)
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
-    (if (typep data '(simple-array (unsigned-byte 8) (*)))
-        (fast-write-sequence data
-                             (socket-buffer socket)
-                             start end)
-        (loop for i from start upto (1- end)
-              for byte of-type (unsigned-byte 8) = (aref data i)
-              do (fast-write-byte byte (socket-buffer socket))))))
+    (let ((ssl-stream (socket-ssl-stream socket)))
+      (if ssl-stream
+          (progn
+            (write-sequence data ssl-stream :start start :end end)
+            (force-output ssl-stream))
+          (if (typep data '(simple-array (unsigned-byte 8) (*)))
+              (fast-write-sequence data
+                                   (socket-buffer socket)
+                                   start end)
+              (loop for i from start upto (1- end)
+                    for byte of-type (unsigned-byte 8) = (aref data i)
+                    do (fast-write-byte byte (socket-buffer socket))))))))
 
 (defun write-socket-byte (socket byte &key (write-cb nil write-cb-specified-p))
   (declare (optimize speed)
@@ -162,7 +169,9 @@
   (when (socket-open-p socket)
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
-    (fast-write-byte byte (socket-buffer socket))))
+    (if (socket-ssl-stream socket)
+        (write-byte byte (socket-ssl-stream socket))
+        (fast-write-byte byte (socket-buffer socket)))))
 
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)
