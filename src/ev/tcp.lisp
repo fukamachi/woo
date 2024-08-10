@@ -241,8 +241,7 @@
        (multiple-value-bind (remote-addr remote-port)
            (get-remote-addr-and-port)
          (let ((socket (make-socket :fd client-fd :tcp-read-cb 'tcp-read-cb
-                                    :remote-addr remote-addr :remote-port remote-port
-                                    :ssl-stream (make-ssl-stream client-fd))))
+                                    :remote-addr remote-addr :remote-port remote-port)))
            (let* ((callbacks (callbacks fd))
                   (read-cb (getf callbacks :read-cb))
                   (connect-cb (getf callbacks :connect-cb)))
