@@ -43,16 +43,6 @@
 (defconstant F-SETFL 4.)
 (defconstant O-NONBLOCK 4.)
 
-(defconstant EWOULDBLOCK 35.)
-(defconstant EPIPE 32.)
-(defconstant EINTR 4.)
-(defconstant EPROTO 100.)
-(defconstant ECONNABORTED 53.)
-(defconstant ECONNREFUSED 61.)
-(defconstant ECONNRESET 54.)
-(defconstant ENOTCONN 57.)
-(defconstant EAGAIN 11.)
-
 (defun set-fd-nonblock (fd enabled)
   (declare (optimize (speed 3) (safety 0)))
   (let ((current-flags (%fcntl/noarg fd F-GETFL)))

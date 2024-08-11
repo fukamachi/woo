@@ -1,4 +1,4 @@
-(include "sys/types.h" "sys/fcntl.h")
+(include "sys/types.h" "sys/fcntl.h" "errno.h")
 #+(or freebsd bsd)
 (include "sys/socket.h")
 
@@ -14,3 +14,12 @@
 (constant (+SF-MNOWAIT+ "SF_MNOWAIT"))
 
 (constant (+O-RDONLY+ "O_RDONLY"))
+(constant (EWOULDBLOCK "EWOULDBLOCK"))
+(constant (EPIPE "EPIPE"))
+(constant (EINTR "EINTR"))
+(constant (EPROTO "EPROTO"))
+(constant (ECONNABORTED "ECONNABORTED"))
+(constant (ECONNREFUSED "ECONNREFUSED"))
+(constant (ECONNRESET "ECONNRESET"))
+(constant (ENOTCONN "ENOTCONN"))
+(constant (EAGAIN "EAGAIN"))
