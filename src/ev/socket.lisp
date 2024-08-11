@@ -49,7 +49,7 @@
            :socket-data
            :socket-read-cb
            :socket-open-p
-           :socket-ssl-stream
+           :socket-ssl-handle
            :check-socket-open
 
            :write-socket-data
@@ -75,7 +75,7 @@
   (tcp-read-cb nil :type symbol)
   (read-cb nil :type (or null function))
   (write-cb nil :type (or null function))
-  (ssl-stream nil :type (or null stream))
+  (ssl-handle nil :type (or null cffi:foreign-pointer))
   (open-p t :type boolean)
 
   (buffer (make-output-buffer #+lispworks :output #+lispworks :static))
@@ -150,18 +150,13 @@
   (when (socket-open-p socket)
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
-    (let ((ssl-stream (socket-ssl-stream socket)))
-      (if ssl-stream
-          (progn
-            (write-sequence data ssl-stream :start start :end end)
-            (force-output ssl-stream))
-          (if (typep data '(simple-array (unsigned-byte 8) (*)))
-              (fast-write-sequence data
-                                   (socket-buffer socket)
-                                   start end)
-              (loop for i from start upto (1- end)
-                    for byte of-type (unsigned-byte 8) = (aref data i)
-                    do (fast-write-byte byte (socket-buffer socket))))))))
+    (if (typep data '(simple-array (unsigned-byte 8) (*)))
+        (fast-write-sequence data
+                             (socket-buffer socket)
+                             start end)
+        (loop for i from start upto (1- end)
+              for byte of-type (unsigned-byte 8) = (aref data i)
+              do (fast-write-byte byte (socket-buffer socket))))))
 
 (defun write-socket-byte (socket byte &key (write-cb nil write-cb-specified-p))
   (declare (optimize speed)
@@ -169,9 +164,7 @@
   (when (socket-open-p socket)
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
-    (if (socket-ssl-stream socket)
-        (write-byte byte (socket-ssl-stream socket))
-        (fast-write-byte byte (socket-buffer socket)))))
+    (fast-write-byte byte (socket-buffer socket))))
 
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)
@@ -192,7 +185,11 @@
     (cffi:with-pointer-to-vector-data (data-sap data)
       (let* ((len (length data))
              (completedp nil)
-             (n (wsys:write fd data-sap len)))
+             (n (if (socket-ssl-handle socket)
+                    (cl+ssl::ssl-write (socket-ssl-handle socket)
+                                       data-sap
+                                       len)
+                    (wsys:write fd data-sap len))))
         (declare (type fixnum len)
                  (type fixnum n))
         (case n

@@ -10,7 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
-                :socket-ssl-stream
+                :socket-ssl-handle
                 :socket-fd
                 :socket-read-cb
                 :socket-read-watcher
@@ -97,16 +97,11 @@
          (buffer-len (length *input-buffer*))
          (socket (deref-data-from-pointer fd))
          (read-cb (socket-read-cb socket))
-         (ssl-stream (socket-ssl-stream socket)))
+         (ssl-handle (socket-ssl-handle socket)))
     (loop
       (let ((n
-              (if ssl-stream
-                  (let ((handle (cl+ssl::ssl-stream-handle ssl-stream))
-                        (cl+ssl::*bio-blockp* nil))
-                    (cl+ssl::nonblocking-ssl-funcall
-                     ssl-stream #'integerp #'cl+ssl::ssl-read handle
-                     (static-vectors:static-vector-pointer *input-buffer*)
-                     buffer-len))
+              (if ssl-handle
+                  (cl+ssl::ssl-read ssl-handle (static-vectors:static-vector-pointer *input-buffer*) buffer-len)
                   (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len))))
         (declare (type fixnum n))
         (case n
@@ -194,21 +189,15 @@
         (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in) 'wsock::port)))
       (t (values nil nil)))))
 
-(defun make-ssl-stream (client-fd)
+(defun make-ssl-handle (client-fd)
   (cl+ssl::ensure-initialized)
-  (let ((stream
-          (make-instance 'cl+ssl::ssl-server-stream
-                         :socket client-fd
-                         :input-buffer-size 0
-                         :output-buffer-size cl+ssl::*default-buffer-size*)))
-    (cl+ssl::with-new-ssl (handle)
-      (setf (cl+ssl::ssl-stream-handle stream) handle)
-      (cl+ssl::install-nonblock-flag client-fd)
-      (cl+ssl::ssl-set-fd handle client-fd)
-      (cl+ssl::ssl-set-accept-state handle)
-      (when cl+ssl:*default-cipher-list*
-        (cl+ssl::ssl-set-cipher-list handle cl+ssl:*default-cipher-list*))
-      stream)))
+  (cl+ssl::with-new-ssl (handle)
+    (cl+ssl::install-nonblock-flag client-fd)
+    (cl+ssl::ssl-set-fd handle client-fd)
+    (cl+ssl::ssl-set-accept-state handle)
+    (when cl+ssl:*default-cipher-list*
+      (cl+ssl::ssl-set-cipher-list handle cl+ssl:*default-cipher-list*))
+    handle))
 
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop events))

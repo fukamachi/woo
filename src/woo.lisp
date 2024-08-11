@@ -82,13 +82,11 @@
         (*listener* nil))
     (labels ((start-socket (socket)
                (when (and ssl-key-file ssl-cert-file)
-                 (let ((ssl-stream (woo.ev.tcp::make-ssl-stream (woo.ev.socket::socket-fd socket))))
-                   (setf (woo.ev.socket:socket-ssl-stream socket) ssl-stream)
-                   (setf (cl+ssl::ssl-stream-certificate ssl-stream) ssl-cert-file
-                         (cl+ssl::ssl-stream-key ssl-stream) ssl-key-file)
+                 (let ((ssl-handle (woo.ev.tcp::make-ssl-handle (woo.ev.socket::socket-fd socket))))
+                   (setf (woo.ev.socket:socket-ssl-handle socket) ssl-handle)
                    (cl+ssl::with-pem-password ((or ssl-key-password ""))
                      (cl+ssl::install-key-and-cert
-                      (cl+ssl::ssl-stream-handle ssl-stream)
+                      ssl-handle
                       ssl-key-file
                       ssl-cert-file))))
                (setup-parser socket)
@@ -371,19 +369,38 @@
              (setf (getf headers :content-length) 0))
            (write-response-headers socket status headers (not close))))
         (pathname
-         (let* ((fd (wsys:open body))
-                (size #+lispworks (sys:file-size body)
-                      #+(or sbcl ccl) (fd-file-size fd)
-                      #-(or sbcl ccl lispworks) (file-size body)))
-           (unless (getf headers :content-length)
-             (setf (getf headers :content-length) size))
-           (unless (getf headers :content-type)
-             (setf (getf headers :content-type) (mimes:mime body)))
-           (wev:with-async-writing (socket :write-cb (and close
-                                                          (lambda (socket)
-                                                            (wev:close-socket socket))))
-             (write-response-headers socket status headers (not close))
-             (woo.ev.socket:send-static-file socket fd size))))
+         (cond
+           ((woo.ev.socket:socket-ssl-handle socket)
+            (with-open-file (in body :element-type '(unsigned-byte 8))
+              (let ((size (file-length in)))
+                (unless (getf headers :content-length)
+                  (setf (getf headers :content-length) size))
+                (unless (getf headers :content-type)
+                  (setf (getf headers :content-type) (mimes:mime body)))
+                (wev:with-async-writing (socket :write-cb (and close
+                                                               (lambda (socket)
+                                                                 (wev:close-socket socket))))
+                  (write-response-headers socket status headers (not close))
+                  ;; Future task: Use OpenSSL's SSL_sendfile which uses Kernel TLS.
+                  ;; TODO: Stop allocating an input buffer every time
+                  (loop with buffer = (make-array 4096 :element-type '(unsigned-byte 8))
+                        for n = (read-sequence buffer in)
+                        do (wev:write-socket-data socket buffer :end n)
+                        while (= n 4096))))))
+           (t
+            (let* ((fd (wsys:open body))
+                   (size #+lispworks (sys:file-size body)
+                         #+(or sbcl ccl) (fd-file-size fd)
+                         #-(or sbcl ccl lispworks) (file-size body)))
+              (unless (getf headers :content-length)
+                (setf (getf headers :content-length) size))
+              (unless (getf headers :content-type)
+                (setf (getf headers :content-type) (mimes:mime body)))
+              (wev:with-async-writing (socket :write-cb (and close
+                                                             (lambda (socket)
+                                                               (wev:close-socket socket))))
+                (write-response-headers socket status headers (not close))
+                (woo.ev.socket:send-static-file socket fd size))))))
         (list
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
