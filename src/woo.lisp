@@ -20,6 +20,8 @@
                 :socket-remote-addr
                 :socket-remote-port
                 :with-sockaddr)
+  #-woo-no-ssl
+  (:import-from :woo.ssl)
   (:import-from :woo.util
                 :integer-string-p)
   (:import-from :quri
@@ -82,6 +84,7 @@
         (*listener* nil)
         (ssl (or ssl-key-file ssl-cert-file)))
     (labels ((start-socket (socket)
+               #-woo-no-ssl
                (when ssl
                  (woo.ssl:init-ssl-handle socket
                                           ssl-cert-file
@@ -130,17 +133,21 @@
                                                 :sockopt wsock:+SO-REUSEADDR+)))
                      (wev:close-tcp-server *listener*))))))
       (when ssl
-        (cl+ssl::ensure-initialized)
-        (when ssl-key-file
-          (setf ssl-key-file
-                (uiop:native-namestring
-                 (or (probe-file ssl-key-file)
-                     (error "SSL private key file '~A' does not exist." ssl-key-file)))))
-        (when ssl-cert-file
-          (setf ssl-cert-file
-                (uiop:native-namestring
-                 (or (probe-file ssl-cert-file)
-                     (error "SSL certificate '~A' does not exist." ssl-cert-file))))))
+        #+woo-no-ssl
+        (warn "SSL certificate is specified but Woo's SSL feature is off. Ignored.")
+        #-woo-no-ssl
+        (progn
+          (cl+ssl::ensure-initialized)
+          (when ssl-key-file
+            (setf ssl-key-file
+                  (uiop:native-namestring
+                   (or (probe-file ssl-key-file)
+                       (error "SSL private key file '~A' does not exist." ssl-key-file)))))
+          (when ssl-cert-file
+            (setf ssl-cert-file
+                  (uiop:native-namestring
+                   (or (probe-file ssl-cert-file)
+                       (error "SSL certificate '~A' does not exist." ssl-cert-file)))))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))

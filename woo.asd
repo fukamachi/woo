@@ -17,11 +17,11 @@
                "trivial-mimes"
                "vom"
                "alexandria"
-               #+sbcl "sb-posix"
-               #+(and linux (not asdf3)) "uiop"
-               #+sbcl "sb-concurrency"
-               #-sbcl "cl-speedy-queue"
-               "cl+ssl")
+               (:feature :sbcl "sb-posix")
+               (:feature (:and :linux (:not :asdf3)) "uiop")
+               (:feature :sbcl "sb-concurrency")
+               (:feature (:not :sbcl) "cl-speedy-queue")
+               (:feature (:not :woo-no-ssl) "cl+ssl"))
   :components ((:module "src"
                 :components
                 ((:file "woo" :depends-on ("ev" "response" "worker" "ssl" "signal" "specials" "util"))
@@ -38,7 +38,9 @@
                    (:file "tcp" :depends-on ("event-loop" "socket" "util" "condition"))
                    (:file "condition")
                    (:file "util")))
-                 (:file "ssl" :depends-on ("ev-packages"))
+                 (:file "ssl"
+                  :depends-on ("ev-packages")
+                  :if-feature (:not :woo-no-ssl))
                  (:module "llsocket"
                   :depends-on ("syscall")
                   :serial t

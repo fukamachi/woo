@@ -100,6 +100,9 @@
          (ssl-handle (socket-ssl-handle socket)))
     (loop
       (let ((n
+              #+woo-no-ssl
+              (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)
+              #-woo-no-ssl
               (if ssl-handle
                   (cl+ssl::ssl-read ssl-handle (static-vectors:static-vector-pointer *input-buffer*) buffer-len)
                   (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len))))

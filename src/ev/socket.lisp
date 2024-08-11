@@ -185,11 +185,15 @@
     (cffi:with-pointer-to-vector-data (data-sap data)
       (let* ((len (length data))
              (completedp nil)
-             (n (if (socket-ssl-handle socket)
-                    (cl+ssl::ssl-write (socket-ssl-handle socket)
-                                       data-sap
-                                       len)
-                    (wsys:write fd data-sap len))))
+             (n
+               #+woo-no-ssl
+               (wsys:write fd data-sap len)
+               #-woo-no-ssl
+               (if (socket-ssl-handle socket)
+                   (cl+ssl::ssl-write (socket-ssl-handle socket)
+                                      data-sap
+                                      len)
+                   (wsys:write fd data-sap len))))
         (declare (type fixnum len)
                  (type fixnum n))
         (case n
