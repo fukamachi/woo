@@ -185,12 +185,13 @@
     (cffi:with-pointer-to-vector-data (data-sap data)
       (let* ((len (length data))
              (completedp nil)
+             (ssl-handle (socket-ssl-handle socket))
              (n
                #+woo-no-ssl
                (wsys:write fd data-sap len)
                #-woo-no-ssl
-               (if (socket-ssl-handle socket)
-                   (cl+ssl::ssl-write (socket-ssl-handle socket)
+               (if ssl-handle
+                   (cl+ssl::ssl-write ssl-handle
                                       data-sap
                                       len)
                    (wsys:write fd data-sap len))))
@@ -198,24 +199,37 @@
                  (type fixnum n))
         (case n
           (-1
-           (let ((errno (wsys:errno)))
-             (return-from flush-buffer
-               (cond
-                 ((or (= errno wsys:EWOULDBLOCK)
-                      (= errno wsys:EINTR))
-                  nil)
-                 ((or (= errno wsys:ECONNABORTED)
-                      (= errno wsys:ECONNREFUSED)
-                      (= errno wsys:ECONNRESET)
-                      (= errno wsys:EPIPE)
-                      (= errno wsys:ENOTCONN))
-                  (vom:error "Connection is already closed (Code: ~D)" errno)
-                  (close-socket socket)
-                  t)
-                 (t
-                  (vom:error "Unexpected error (Code: ~D)" errno)
-                  (close-socket socket)
-                  t)))))
+           (if ssl-handle
+               #+woo-no-ssl (close-socket socket)
+               #-woo-no-ssl
+               (let ((errno (cl+ssl::ssl-get-error ssl-handle n)))
+                 (declare (type fixnum errno))
+                 (cond
+                   ((or (= errno cl+ssl::+ssl-error-zero-return+)
+                        (= errno cl+ssl::+ssl-error-ssl+))
+                    (close-socket socket))
+                   ((= errno cl+ssl::+ssl-error-want-write+))
+                   (t
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket))))
+               (let ((errno (wsys:errno)))
+                 (return-from flush-buffer
+                   (cond
+                     ((or (= errno wsys:EWOULDBLOCK)
+                          (= errno wsys:EINTR))
+                      nil)
+                     ((or (= errno wsys:ECONNABORTED)
+                          (= errno wsys:ECONNREFUSED)
+                          (= errno wsys:ECONNRESET)
+                          (= errno wsys:EPIPE)
+                          (= errno wsys:ENOTCONN))
+                      (vom:error "Connection is already closed (Code: ~D)" errno)
+                      (close-socket socket)
+                      t)
+                     (t
+                      (vom:error "Unexpected error (Code: ~D)" errno)
+                      (close-socket socket)
+                      t))))))
           (otherwise
            (setf (socket-last-activity socket) (lev:ev-now *evloop*))
            (if (= n len)

@@ -109,21 +109,35 @@
         (declare (type fixnum n))
         (case n
           (-1
-           (let ((errno (wsys:errno)))
-             (cond
-               ((or (= errno wsys:EWOULDBLOCK)
-                    (= errno wsys:EINTR)))
-               ((or (= errno wsys:ECONNABORTED)
-                    (= errno wsys:ECONNREFUSED)
-                    (= errno wsys:ECONNRESET))
-                (vom:error "Connection is already closed (Code: ~D)" errno)
-                (close-socket socket))
-               ((= errno wsys:EAGAIN)
-                ;; Just to nothing
-                )
-               (t
-                (vom:error "Unexpected error (Code: ~D)" errno)
-                (close-socket socket))))
+           (if ssl-handle
+               #+woo-no-ssl (close-socket socket)
+               #-woo-no-ssl
+               (let ((errno (cl+ssl::ssl-get-error ssl-handle n)))
+                 (declare (type fixnum errno))
+                 (cond
+                   ((or (= errno cl+ssl::+ssl-error-zero-return+)
+                        (= errno cl+ssl::+ssl-error-ssl+))
+                    (close-socket socket))
+                   ((= errno cl+ssl::+ssl-error-want-read+))
+                   (t
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket))))
+               (let ((errno (wsys:errno)))
+                 (declare (type fixnum errno))
+                 (cond
+                   ((or (= errno wsys:EWOULDBLOCK)
+                        (= errno wsys:EINTR)))
+                   ((or (= errno wsys:ECONNABORTED)
+                        (= errno wsys:ECONNREFUSED)
+                        (= errno wsys:ECONNRESET))
+                    (vom:error "Connection is already closed (Code: ~D)" errno)
+                    (close-socket socket))
+                   ((= errno wsys:EAGAIN)
+                    ;; Just to nothing
+                    )
+                   (t
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket)))))
            (return))
           (0
            ;; EOF
