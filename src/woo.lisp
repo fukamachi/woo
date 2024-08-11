@@ -79,16 +79,14 @@
 
   (let ((*app* app)
         (*debug* debug)
-        (*listener* nil))
+        (*listener* nil)
+        (ssl (or ssl-key-file ssl-cert-file)))
     (labels ((start-socket (socket)
-               (when (and ssl-key-file ssl-cert-file)
-                 (let ((ssl-handle (woo.ev.tcp::make-ssl-handle (woo.ev.socket::socket-fd socket))))
-                   (setf (woo.ev.socket:socket-ssl-handle socket) ssl-handle)
-                   (cl+ssl::with-pem-password ((or ssl-key-password ""))
-                     (cl+ssl::install-key-and-cert
-                      ssl-handle
-                      ssl-key-file
-                      ssl-cert-file))))
+               (when ssl
+                 (woo.ssl:init-ssl-handle socket
+                                          ssl-cert-file
+                                          ssl-key-file
+                                          ssl-key-password))
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
@@ -130,22 +128,22 @@
                                                 :backlog backlog
                                                 :fd fd
                                                 :sockopt wsock:+SO-REUSEADDR+)))
-                     (wev:close-tcp-server *listener*)))))
-             (main ()
-               (if worker-num
-                   (start-multithread-server)
-                   (start-singlethread-server))))
-      (when ssl-key-file
-        (setf ssl-key-file
-              (uiop:native-namestring
-               (or (probe-file ssl-key-file)
-                   (error "SSL private key file '~A' does not exist." ssl-key-file)))))
-      (when ssl-cert-file
-        (setf ssl-cert-file
-              (uiop:native-namestring
-               (or (probe-file ssl-cert-file)
-                   (error "SSL certificate '~A' does not exist." ssl-cert-file)))))
-      (main))))
+                     (wev:close-tcp-server *listener*))))))
+      (when ssl
+        (cl+ssl::ensure-initialized)
+        (when ssl-key-file
+          (setf ssl-key-file
+                (uiop:native-namestring
+                 (or (probe-file ssl-key-file)
+                     (error "SSL private key file '~A' does not exist." ssl-key-file)))))
+        (when ssl-cert-file
+          (setf ssl-cert-file
+                (uiop:native-namestring
+                 (or (probe-file ssl-cert-file)
+                     (error "SSL certificate '~A' does not exist." ssl-cert-file))))))
+      (if worker-num
+          (start-multithread-server)
+          (start-singlethread-server)))))
 
 (defun read-cb (socket data &key (start 0) (end (length data)))
   (let ((parser (wev:socket-data socket)))

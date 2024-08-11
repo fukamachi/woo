@@ -24,7 +24,7 @@
                "cl+ssl")
   :components ((:module "src"
                 :components
-                ((:file "woo" :depends-on ("ev" "response" "worker" "signal" "specials" "util"))
+                ((:file "woo" :depends-on ("ev" "response" "worker" "ssl" "signal" "specials" "util"))
                  (:file "response" :depends-on ("ev"))
                  (:file "ev" :depends-on ("ev-packages"))
                  (:file "worker" :depends-on ("ev" "queue" "specials"))
@@ -38,6 +38,7 @@
                    (:file "tcp" :depends-on ("event-loop" "socket" "util" "condition"))
                    (:file "condition")
                    (:file "util")))
+                 (:file "ssl" :depends-on ("ev-packages"))
                  (:module "llsocket"
                   :depends-on ("syscall")
                   :serial t

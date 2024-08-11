@@ -189,16 +189,6 @@
         (cffi:foreign-slot-value *dummy-sockaddr* '(:struct wsock:sockaddr-in) 'wsock::port)))
       (t (values nil nil)))))
 
-(defun make-ssl-handle (client-fd)
-  (cl+ssl::ensure-initialized)
-  (cl+ssl::with-new-ssl (handle)
-    (cl+ssl::install-nonblock-flag client-fd)
-    (cl+ssl::ssl-set-fd handle client-fd)
-    (cl+ssl::ssl-set-accept-state handle)
-    (when cl+ssl:*default-cipher-list*
-      (cl+ssl::ssl-set-cipher-list handle cl+ssl:*default-cipher-list*))
-    handle))
-
 (define-c-callback tcp-accept-cb :void ((evloop :pointer) (listener :pointer) (events :int))
   (declare (ignore evloop events))
   (let* ((fd (io-fd listener))
