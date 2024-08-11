@@ -14,7 +14,8 @@
   `((*standard-output* . ,*standard-output*)
     (*error-output* . ,*error-output*)
     (*app* . ,*app*)
-    (*debug* . ,*debug*)))
+    (*debug* . ,*debug*)
+    (*random-state* . ,(make-random-state t))))
 
 (defvar *listener* nil)
 (defvar *cluster* nil)
