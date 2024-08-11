@@ -12,3 +12,4 @@ benchmark/benchmark.log
 .qlot/
 qlfile
 qlfile.lock
+t/certs/
