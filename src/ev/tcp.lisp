@@ -10,6 +10,7 @@
   (:import-from :woo.ev.socket
                 :make-socket
                 :close-socket
+                :socket-ssl-handle
                 :socket-fd
                 :socket-read-cb
                 :socket-read-watcher
@@ -95,27 +96,48 @@
   (let* ((fd (io-fd watcher))
          (buffer-len (length *input-buffer*))
          (socket (deref-data-from-pointer fd))
-         (read-cb (socket-read-cb socket)))
+         (read-cb (socket-read-cb socket))
+         (ssl-handle (socket-ssl-handle socket)))
     (loop
-      (let ((n (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)))
+      (let ((n
+              #+woo-no-ssl
+              (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len)
+              #-woo-no-ssl
+              (if ssl-handle
+                  (cl+ssl::ssl-read ssl-handle (static-vectors:static-vector-pointer *input-buffer*) buffer-len)
+                  (wsys:read fd (static-vectors:static-vector-pointer *input-buffer*) buffer-len))))
         (declare (type fixnum n))
         (case n
           (-1
-           (let ((errno (wsys:errno)))
-             (cond
-               ((or (= errno wsys:EWOULDBLOCK)
-                    (= errno wsys:EINTR)))
-               ((or (= errno wsys:ECONNABORTED)
-                    (= errno wsys:ECONNREFUSED)
-                    (= errno wsys:ECONNRESET))
-                (vom:error "Connection is already closed (Code: ~D)" errno)
-                (close-socket socket))
-               ((= errno wsys:EAGAIN)
-                ;; Just to nothing
-                )
-               (t
-                (vom:error "Unexpected error (Code: ~D)" errno)
-                (close-socket socket))))
+           (if ssl-handle
+               #+woo-no-ssl (close-socket socket)
+               #-woo-no-ssl
+               (let ((errno (cl+ssl::ssl-get-error ssl-handle n)))
+                 (declare (type fixnum errno))
+                 (cond
+                   ((or (= errno cl+ssl::+ssl-error-zero-return+)
+                        (= errno cl+ssl::+ssl-error-ssl+))
+                    (close-socket socket))
+                   ((= errno cl+ssl::+ssl-error-want-read+))
+                   (t
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket))))
+               (let ((errno (wsys:errno)))
+                 (declare (type fixnum errno))
+                 (cond
+                   ((or (= errno wsys:EWOULDBLOCK)
+                        (= errno wsys:EINTR)))
+                   ((or (= errno wsys:ECONNABORTED)
+                        (= errno wsys:ECONNREFUSED)
+                        (= errno wsys:ECONNRESET))
+                    (vom:error "Connection is already closed (Code: ~D)" errno)
+                    (close-socket socket))
+                   ((= errno wsys:EAGAIN)
+                    ;; Just to nothing
+                    )
+                   (t
+                    (vom:error "Unexpected error (Code: ~D)" errno)
+                    (close-socket socket)))))
            (return))
           (0
            ;; EOF

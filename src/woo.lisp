@@ -20,6 +20,8 @@
                 :socket-remote-addr
                 :socket-remote-port
                 :with-sockaddr)
+  #-woo-no-ssl
+  (:import-from :woo.ssl)
   (:import-from :woo.util
                 :integer-string-p)
   (:import-from :quri
@@ -60,10 +62,14 @@
 (defvar *default-worker-num* nil)
 
 (defun run (app &key (debug t)
-                  (port 5000) (address "127.0.0.1")
-                  listen ;; UNIX domain socket
-                  (backlog *default-backlog-size*) fd
-                  (worker-num *default-worker-num*))
+                     (port 5000) (address "127.0.0.1")
+                     listen ;; UNIX domain socket
+                     (backlog *default-backlog-size*) fd
+                     (worker-num *default-worker-num*)
+                     ssl-key-file
+                     ssl-cert-file
+                     ssl-key-password)
+  (declare (ignorable ssl-key-password))
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
@@ -76,8 +82,15 @@
 
   (let ((*app* app)
         (*debug* debug)
-        (*listener* nil))
+        (*listener* nil)
+        (ssl (or ssl-key-file ssl-cert-file)))
     (labels ((start-socket (socket)
+               #-woo-no-ssl
+               (when ssl
+                 (woo.ssl:init-ssl-handle socket
+                                          ssl-cert-file
+                                          ssl-key-file
+                                          ssl-key-password))
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
@@ -120,6 +133,22 @@
                                                 :fd fd
                                                 :sockopt wsock:+SO-REUSEADDR+)))
                      (wev:close-tcp-server *listener*))))))
+      (when ssl
+        #+woo-no-ssl
+        (warn "SSL certificate is specified but Woo's SSL feature is off. Ignored.")
+        #-woo-no-ssl
+        (progn
+          (cl+ssl::ensure-initialized)
+          (when ssl-key-file
+            (setf ssl-key-file
+                  (uiop:native-namestring
+                   (or (probe-file ssl-key-file)
+                       (error "SSL private key file '~A' does not exist." ssl-key-file)))))
+          (when ssl-cert-file
+            (setf ssl-cert-file
+                  (uiop:native-namestring
+                   (or (probe-file ssl-cert-file)
+                       (error "SSL certificate '~A' does not exist." ssl-cert-file)))))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))
@@ -346,19 +375,38 @@
              (setf (getf headers :content-length) 0))
            (write-response-headers socket status headers (not close))))
         (pathname
-         (let* ((fd (wsys:open body))
-                (size #+lispworks (sys:file-size body)
-                      #+(or sbcl ccl) (fd-file-size fd)
-                      #-(or sbcl ccl lispworks) (file-size body)))
-           (unless (getf headers :content-length)
-             (setf (getf headers :content-length) size))
-           (unless (getf headers :content-type)
-             (setf (getf headers :content-type) (mimes:mime body)))
-           (wev:with-async-writing (socket :write-cb (and close
-                                                          (lambda (socket)
-                                                            (wev:close-socket socket))))
-             (write-response-headers socket status headers (not close))
-             (woo.ev.socket:send-static-file socket fd size))))
+         (cond
+           ((woo.ev.socket:socket-ssl-handle socket)
+            (with-open-file (in body :element-type '(unsigned-byte 8))
+              (let ((size (file-length in)))
+                (unless (getf headers :content-length)
+                  (setf (getf headers :content-length) size))
+                (unless (getf headers :content-type)
+                  (setf (getf headers :content-type) (mimes:mime body)))
+                (wev:with-async-writing (socket :write-cb (and close
+                                                               (lambda (socket)
+                                                                 (wev:close-socket socket))))
+                  (write-response-headers socket status headers (not close))
+                  ;; Future task: Use OpenSSL's SSL_sendfile which uses Kernel TLS.
+                  ;; TODO: Stop allocating an input buffer every time
+                  (loop with buffer = (make-array 4096 :element-type '(unsigned-byte 8))
+                        for n = (read-sequence buffer in)
+                        do (wev:write-socket-data socket buffer :end n)
+                        while (= n 4096))))))
+           (t
+            (let* ((fd (wsys:open body))
+                   (size #+lispworks (sys:file-size body)
+                         #+(or sbcl ccl) (fd-file-size fd)
+                         #-(or sbcl ccl lispworks) (file-size body)))
+              (unless (getf headers :content-length)
+                (setf (getf headers :content-length) size))
+              (unless (getf headers :content-type)
+                (setf (getf headers :content-type) (mimes:mime body)))
+              (wev:with-async-writing (socket :write-cb (and close
+                                                             (lambda (socket)
+                                                               (wev:close-socket socket))))
+                (write-response-headers socket status headers (not close))
+                (woo.ev.socket:send-static-file socket fd size))))))
         (list
          (wev:with-async-writing (socket :write-cb (and close
                                                         (lambda (socket)
