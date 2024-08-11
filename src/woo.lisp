@@ -69,6 +69,7 @@
                      ssl-key-file
                      ssl-cert-file
                      ssl-key-password)
+  (declare (ignorable ssl-key-password))
   (assert (and (integerp backlog)
                (plusp backlog)
                (<= backlog 128)))
