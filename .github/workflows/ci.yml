@@ -26,8 +26,6 @@ jobs:
         run: ros -e '(ql-dist:install-dist "http://dist.ultralisp.org/" :prompt nil)'
       - name: Install Rove
         run: ros install rove
-      - name: Install the latest Clack (for HTTPS testing with clack-test)
-        run: ros install fukamachi/clack
       - name: Run tests
         env:
           LISP: ${{ matrix.lisp }}
