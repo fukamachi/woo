@@ -175,26 +175,26 @@
       (setf (socket-write-cb socket) write-cb))
     (let ((file-size (file-length stream))
           (buffer (socket-buffer socket)))
-      ;; Fill the last vector of fast-io's buffer
-      (let* ((start (fast-io::output-buffer-fill buffer))
-             (end
-               (read-sequence (fast-io::output-buffer-vector buffer)
-                              stream
-                              :start start)))
-        (setf (fast-io::output-buffer-fill buffer) end)
-        (incf (fast-io::output-buffer-len buffer)
-              (- end start)))
       (unless (= (file-position stream) file-size)
-        ;; Load the rest of file contents directly into the fast-io's buffer
         (loop
-          (fast-io::extend buffer)
-          (let ((n
-                  (read-sequence (fast-io::output-buffer-vector buffer)
-                                 stream)))
-            (setf (fast-io::output-buffer-fill buffer) n)
-            (incf (fast-io::output-buffer-len buffer) n))
-          (when (= (file-position stream) file-size)
-            (return)))))))
+          (let* ((start (fast-io::output-buffer-fill buffer))
+                 (end
+                   (read-sequence (fast-io::output-buffer-vector buffer)
+                                  stream
+                                  :start start)))
+            (setf (fast-io::output-buffer-fill buffer) end)
+            (incf (fast-io::output-buffer-len buffer)
+                  (- end start)))
+          (cond
+            ((= (file-position stream) file-size)
+             (return))
+            ;; Prevent from loading a too large file on memory.
+            ;; TODO: Allow to set the threshold by users.
+            ((< 1048576 (fast-io::output-buffer-len buffer))
+             (and (flush-buffer socket)
+                  (reset-buffer socket)))
+            (t
+             (fast-io::extend buffer))))))))
 
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)
