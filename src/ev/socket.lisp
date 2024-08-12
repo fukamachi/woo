@@ -54,6 +54,7 @@
 
            :write-socket-data
            :write-socket-byte
+           :write-socket-stream
            :flush-buffer
            :with-async-writing
            :send-static-file
@@ -165,6 +166,35 @@
     (when write-cb-specified-p
       (setf (socket-write-cb socket) write-cb))
     (fast-write-byte byte (socket-buffer socket))))
+
+(defun write-socket-stream (socket stream &key (write-cb nil write-cb-specified-p))
+  (declare (optimize speed)
+           (type file-stream stream))
+  (when (socket-open-p socket)
+    (when write-cb-specified-p
+      (setf (socket-write-cb socket) write-cb))
+    (let ((file-size (file-length stream))
+          (buffer (socket-buffer socket)))
+      ;; Fill the last vector of fast-io's buffer
+      (let* ((start (fast-io::output-buffer-fill buffer))
+             (end
+               (read-sequence (fast-io::output-buffer-vector buffer)
+                              stream
+                              :start start)))
+        (setf (fast-io::output-buffer-fill buffer) end)
+        (incf (fast-io::output-buffer-len buffer)
+              (- end start)))
+      (unless (= (file-position stream) file-size)
+        ;; Load the rest of file contents directly into the fast-io's buffer
+        (loop
+          (fast-io::extend buffer)
+          (let ((n
+                  (read-sequence (fast-io::output-buffer-vector buffer)
+                                 stream)))
+            (setf (fast-io::output-buffer-fill buffer) n)
+            (incf (fast-io::output-buffer-len buffer) n))
+          (when (= (file-position stream) file-size)
+            (return)))))))
 
 (declaim (inline reset-buffer))
 (defun reset-buffer (socket)

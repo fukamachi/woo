@@ -388,11 +388,7 @@
                                                                  (wev:close-socket socket))))
                   (write-response-headers socket status headers (not close))
                   ;; Future task: Use OpenSSL's SSL_sendfile which uses Kernel TLS.
-                  ;; TODO: Stop allocating an input buffer every time
-                  (loop with buffer = (make-array 4096 :element-type '(unsigned-byte 8))
-                        for n = (read-sequence buffer in)
-                        do (wev:write-socket-data socket buffer :end n)
-                        while (= n 4096))))))
+                  (wev:write-socket-stream socket in)))))
            (t
             (let* ((fd (wsys:open body))
                    (size #+lispworks (sys:file-size body)
