@@ -67,13 +67,13 @@ See [benchmark.md](benchmark.md).
 
 ## Installation
 
-Woo has switched the backend from cl-async to libev after the latest Quicklisp dist release. If you're gonna run the benchmarks by your own, please use the latest one.
-
 ### Requirements
 
 * UNIX (GNU Linux, Mac, \*BSD)
 * SBCL
 * [libev](http://libev.schmorp.de)
+* OpenSSL or LibreSSL (Optional)
+  * To turn off SSL, add `:woo-no-ssl` to `cl:*features*` before loading Woo.
 
 ### Installing via Quicklisp
 
@@ -81,11 +81,15 @@ Woo has switched the backend from cl-async to libev after the latest Quicklisp d
 (ql:quickload :woo)
 ```
 
+## Docker example
+
+* [Dockerfile](https://github.com/quickdocs/quickdocs-api/blob/master/docker/Dockerfile.production) for Quickdocs's API server.
+
 ## See Also
 
+* [Lack](https://github.com/fukamachi/lack): Building a web application
+* [Clack](https://github.com/fukamachi/clack): An abstraction layer for web servers
 * [libev](http://software.schmorp.de/pkg/libev.html)
-* [Clack](http://clacklisp.org/)
-* [Wookie](http://wookie.beeets.com)
 
 ## Author
 
