@@ -18,7 +18,7 @@ See [benchmark.md](benchmark.md) for the detail.
 
 Use `clack:clackup` or `woo:run` to start a web server. The first argument is a Lack "app". See [Lack's README](https://github.com/fukamachi/lack#readme) for instruction on how to build it.
 
-Remember to pass ":debug nil" to turn off the debugger mode on the remote environment. Otherwise, your server will go down on any internal errors.
+Remember to pass ":debug nil" to turn off the debugger mode on remote environments. Otherwise, your server will go down on any internal errors.
 
 ### Start a server
 
