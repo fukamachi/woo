@@ -54,6 +54,24 @@ Remember to pass ":debug nil" to turn off the debugger mode on production enviro
   :worker-num 4)
 ```
 
+### SSL Support
+
+Use SSL key arguments of `woo:run` or `clack:clackup`.
+
+```commonlisp
+(woo:run app
+         :ssl-cert-file #P"path/to/cert.pem"
+         :ssl-key-file #P"path/to/key.pem"
+         :ssl-key-pass "password")
+
+(clack:clackup app
+               :ssl-cert-file #P"path/to/cert.pem"
+               :ssl-key-file #P"path/to/key.pem"
+               :ssl-key-pass "password")
+```
+
+To disable the HTTPS support to omit a dependency on CL+SSL, add `woo-no-ssl` to `cl:*features*`.
+
 ## Signal handling
 
 When the master process gets these signals, it kills worker processes and quits afterwards.
