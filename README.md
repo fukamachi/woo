@@ -62,12 +62,12 @@ Use SSL key arguments of `woo:run` or `clack:clackup`.
 (woo:run app
          :ssl-cert-file #P"path/to/cert.pem"
          :ssl-key-file #P"path/to/key.pem"
-         :ssl-key-pass "password")
+         :ssl-key-password "password")
 
 (clack:clackup app
                :ssl-cert-file #P"path/to/cert.pem"
                :ssl-key-file #P"path/to/key.pem"
-               :ssl-key-pass "password")
+               :ssl-key-password "password")
 ```
 
 To disable the HTTPS support to omit a dependency on CL+SSL, add `woo-no-ssl` to `cl:*features*`.
