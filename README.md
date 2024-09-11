@@ -22,6 +22,8 @@ Remember to pass ":debug nil" to turn off the debugger mode on production enviro
 
 ### Start a server
 
+On a separate thread than the main thread:
+
 ```common-lisp
 (ql:quickload :woo)
 
@@ -30,6 +32,30 @@ Remember to pass ":debug nil" to turn off the debugger mode on production enviro
     (declare (ignore env))
     '(200 (:content-type "text/plain") ("Hello, World"))))
 ```
+
+Note the following:
+- The default port is `5000`
+- The above will not work in the main thread
+
+#### To run from the REPL do this:
+
+```common-lisp
+(ql:quickload :woo)
+(defvar *woo-app*
+  (lambda (env)
+    (declare (ignore env))
+    '(200 () ("Hello from Woo"))))
+
+
+(defun woo-thread-function ()
+  (woo:run *woo-app*))
+
+(defvar *woo-thread* (bt2:make-thread #'woo-thread-function))
+```
+
+To stop the server you can kill the thread `(bt2:destroy-thread *woo-thread*)`
+
+**Note**: There is a function `(woo:run server)`, however, I don't know where we get the server variable to pass it in.
 
 ### Start with Clack
 
