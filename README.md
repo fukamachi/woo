@@ -91,7 +91,7 @@ To stop the server do:
 
 Use SSL key arguments of `woo:run` or `clack:clackup`.
 
-```commonlisp
+```common-lisp
 (woo:run app
          :ssl-cert-file #P"path/to/cert.pem"
          :ssl-key-file #P"path/to/key.pem"
