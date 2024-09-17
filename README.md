@@ -46,14 +46,21 @@ Note the following:
     (declare (ignore env))
     '(200 () ("Hello from Woo"))))
 
-
-(defun woo-thread-function ()
-  (woo:run *woo-app*))
-
-(defvar *woo-thread* (bt2:make-thread #'woo-thread-function))
+(defvar *clack-server*
+  (clack:clackup *woo-app*
+                 :server :woo
+		 ;; :address "0.0.0.0"
+                 :port 80
+                 :debug NIL))
 ```
 
-To stop the server you can kill the thread `(bt2:destroy-thread *woo-thread*)`
+**Note:** By default the address is only `localhost`/`127.0.0.1`, if you uncomment the line above and set it to `0.0.0.0` it will accept connections from anywhere.
+
+To stop the server do: 
+
+```common-lisp
+(clack:stop *clack-server*)
+```
 
 **Note**: There is a function `(woo:run server)`, however, I don't know where we get the server variable to pass it in.
 
