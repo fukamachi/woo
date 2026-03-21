@@ -1,5 +1,5 @@
 (include "sys/types.h" "sys/fcntl.h" "errno.h")
-#+(or freebsd bsd)
+#+freebsd
 (include "sys/socket.h")
 
 (in-package :woo.syscall)
@@ -10,7 +10,7 @@
 (ctype off-t "off_t")
 (ctype mode-t "mode_t")
 
-#+(or freebsd bsd)
+#+freebsd
 (constant (+SF-MNOWAIT+ "SF_MNOWAIT"))
 
 (constant (+O-RDONLY+ "O_RDONLY"))
