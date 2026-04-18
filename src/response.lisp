@@ -74,6 +74,7 @@
        (423 "Locked")
        (424 "Failed Dependency")
        (426 "Upgrade Required")
+       (429 "Too Many Requests")
        (451 "Unavailable For Legal Reasons")))
     (T
      (case code
