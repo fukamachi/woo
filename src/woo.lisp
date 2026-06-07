@@ -88,7 +88,8 @@
     (labels ((start-socket (socket)
                #-woo-no-ssl
                (when ssl
-                 (woo.ssl:init-ssl-handle socket *ssl-context*))
+                 (woo.ssl:init-ssl-handle socket *ssl-context*
+                                          ssl-cert-file ssl-key-file ssl-key-password))
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
@@ -153,7 +154,7 @@
                    (or (probe-file ssl-cert-file)
                        (error "SSL certificate '~A' does not exist." ssl-cert-file)))))
           (setf *ssl-context*
-                (woo.ssl:make-context ssl-cert-file ssl-key-file ssl-key-password))))
+                (woo.ssl:create-context ssl-cert-file ssl-key-file ssl-key-password))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))

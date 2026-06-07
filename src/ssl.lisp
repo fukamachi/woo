@@ -1,6 +1,7 @@
 (defpackage woo.ssl
   (:use :cl)
   (:import-from :cl+ssl
+                :make-context
                 :with-global-context
                 :with-new-ssl
                 :install-nonblock-flag
@@ -13,19 +14,20 @@
   (:import-from :woo.ev.socket
                 :socket-fd
                 :socket-ssl-handle)
-  (:export :make-context
+  (:export :create-context
            :init-ssl-handle
            :free-ctx))
 (in-package :woo.ssl)
 
-(defun make-context (ssl-cert-file ssl-key-file ssl-key-password)
-  (cl+ssl:make-context :certificate-chain-file ssl-cert-file
-                       :private-key-file ssl-key-file
-                       :private-key-password ssl-key-password))
+(defun create-context (ssl-cert-file ssl-key-file ssl-key-password)
+  (make-context :certificate-chain-file ssl-cert-file
+                :private-key-file ssl-key-file
+                :private-key-password ssl-key-password
+                :verify-mode cl+ssl:+ssl-verify-none+))
 
-(defun init-ssl-handle (socket ssl-ctx)
-  (cl+ssl:with-global-context (ssl-ctx)
-    (let ((client-fd (socket-fd socket)))
+(defun init-ssl-handle (socket ssl-ctx ssl-cert-file ssl-key-file ssl-key-password)
+  (with-global-context (ssl-ctx)
+    (let* ((client-fd (socket-fd socket)))
       (with-new-ssl (handle)
         (install-nonblock-flag client-fd)
         (ssl-set-fd handle client-fd)
@@ -33,7 +35,11 @@
         (when *default-cipher-list*
           (ssl-set-cipher-list handle *default-cipher-list*))
         (setf (socket-ssl-handle socket) handle)
-        (install-key-and-cert handle nil nil)
+        (with-pem-password ((or ssl-key-password ""))
+          (install-key-and-cert
+           handle
+           ssl-key-file
+           ssl-cert-file))
         socket))))
 
 (defun free-ctx (ssl-ctx)
