@@ -83,14 +83,13 @@
   (let ((*app* app)
         (*debug* debug)
         (*listener* nil)
-        (ssl (or ssl-key-file ssl-cert-file)))
+        (ssl (or ssl-key-file ssl-cert-file))
+        (*ssl-context* nil))
     (labels ((start-socket (socket)
                #-woo-no-ssl
                (when ssl
-                 (woo.ssl:init-ssl-handle socket
-                                          ssl-cert-file
-                                          ssl-key-file
-                                          ssl-key-password))
+                 (woo.ssl:init-ssl-handle socket *ssl-context*
+                                          ssl-cert-file ssl-key-file ssl-key-password))
                (setup-parser socket)
                (woo.ev.tcp:start-listening-socket socket))
              (start-multithread-server ()
@@ -114,6 +113,9 @@
                                                 :backlog backlog
                                                 :fd fd
                                                 :sockopt wsock:+SO-REUSEADDR+)))
+                     (when ssl
+                       #-woo-no-ssl
+                       (woo.ssl:free-ctx *ssl-context*))
                      (wev:close-tcp-server *listener*)
                      (woo.worker:stop-cluster *cluster*)))))
              (start-singlethread-server ()
@@ -132,13 +134,15 @@
                                                 :backlog backlog
                                                 :fd fd
                                                 :sockopt wsock:+SO-REUSEADDR+)))
+                     (when ssl
+                       #-woo-no-ssl
+                       (woo.ssl:free-ctx *ssl-context*))
                      (wev:close-tcp-server *listener*))))))
       (when ssl
         #+woo-no-ssl
         (warn "SSL certificate is specified but Woo's SSL feature is off. Ignored.")
         #-woo-no-ssl
         (progn
-          (cl+ssl::ensure-initialized)
           (when ssl-key-file
             (setf ssl-key-file
                   (uiop:native-namestring
@@ -148,7 +152,9 @@
             (setf ssl-cert-file
                   (uiop:native-namestring
                    (or (probe-file ssl-cert-file)
-                       (error "SSL certificate '~A' does not exist." ssl-cert-file)))))))
+                       (error "SSL certificate '~A' does not exist." ssl-cert-file)))))
+          (setf *ssl-context*
+                (woo.ssl:create-context ssl-cert-file ssl-key-file ssl-key-password))))
       (if worker-num
           (start-multithread-server)
           (start-singlethread-server)))))
