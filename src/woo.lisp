@@ -305,11 +305,13 @@
       (vom:error (princ-to-string e)))))
 
 #+sbcl
-(defvar *stat* (make-instance 'sb-posix:stat))
-#+sbcl
 (defun fd-file-size (fd)
-  (sb-posix:fstat fd *stat*)
-  (sb-posix:stat-size *stat*))
+  ;; Must not reuse a shared stat struct here: workers are threads, so a
+  ;; struct filled by fstat can be overwritten by another thread before
+  ;; stat-size reads it, yielding another file's size as Content-Length.
+  ;; The allocation is ~44ns against a ~10us open() that every sendfile
+  ;; response pays anyway.
+  (sb-posix:stat-size (sb-posix:fstat fd)))
 #+ccl
 (defun fd-file-size (fd)
   (multiple-value-bind (successp mode size)
