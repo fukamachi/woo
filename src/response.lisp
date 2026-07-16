@@ -73,7 +73,10 @@
        (422 "Unprocessable Entity")
        (423 "Locked")
        (424 "Failed Dependency")
+       (425 "Too Early")
        (426 "Upgrade Required")
+       (428 "Precondition Required")
+       (431 "Request Header Fields Too Large")
        (451 "Unavailable For Legal Reasons")))
     (T
      (case code
@@ -87,7 +90,8 @@
        (507 "Insufficient Storage")
        (508 "Loop Detected")
        (509 "Bandwidth Limit Exceeded")
-       (510 "Not Extended")))))
+       (510 "Not Extended")
+       (511 "Network Authentication Required")))))
 
 (defvar *status-line* (make-hash-table :test 'eql))
 
@@ -100,7 +104,7 @@
               #\Return
               #\Linefeed))))
 
-(loop for status from 100 to 510
+(loop for status from 100 to 511
       for status-line = (http/1.1 status)
       when status-line
         do (setf (gethash status *status-line*)
