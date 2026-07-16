@@ -126,6 +126,13 @@
   (when (socket-open-p socket)
     (setf (socket-open-p socket) nil)
     (free-watchers socket)
+    ;; Send a TLS close_notify before closing the fd. Without it the peer sees
+    ;; the stream end mid-record: OpenSSL 3.x raises "unexpected eof while
+    ;; reading" and data still in flight is lost.
+    #-woo-no-ssl
+    (let ((ssl-handle (socket-ssl-handle socket)))
+      (when ssl-handle
+        (ignore-errors (cl+ssl::ssl-shutdown ssl-handle))))
     (let ((fd (socket-fd socket)))
       (wsys:close fd)
       (remove-pointer-from-registry fd))
