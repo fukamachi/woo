@@ -353,113 +353,136 @@
      (warn "Invalid data in Clack response: ~S" chunk))))
 
 (defun handle-normal-response (http socket clack-res)
-  (let ((no-body '#:no-body)
-        (close (or (= (http-minor-version http) 0)
-                   (string-equal (gethash "connection" (http-headers http)) "close"))))
-    (destructuring-bind (status headers &optional (body no-body))
-        clack-res
-      (when (eq body no-body)
-        (setf (getf headers :transfer-encoding) "chunked")
-        (setf (getf headers :content-length) nil)
-        (wev:with-async-writing (socket)
-          (write-response-headers socket status headers))
-        (return-from handle-normal-response
-          (make-streaming-writer socket)))
+  (flet ((send-error-response (status)
+           (wev:with-async-writing (socket :write-cb (lambda (socket)
+                                                       (wev:close-socket socket)))
+             (write-response-headers socket status (list :connection "close"
+                                                         :content-length 0)))))
+    (let ((no-body '#:no-body)
+          (close (or (= (http-minor-version http) 0)
+                     (string-equal (gethash "connection" (http-headers http)) "close"))))
+      (destructuring-bind (status headers &optional (body no-body))
+          clack-res
+        (when (eq body no-body)
+          (setf (getf headers :transfer-encoding) "chunked")
+          (setf (getf headers :content-length) nil)
+          (wev:with-async-writing (socket)
+            (write-response-headers socket status headers))
+          (return-from handle-normal-response
+            (make-streaming-writer socket)))
 
-      (etypecase body
-        (null
-         (wev:with-async-writing (socket :write-cb (and close
-                                                        (lambda (socket)
-                                                          (wev:close-socket socket))))
-           (unless (= status 304)
-             (setf (getf headers :content-length) 0))
-           (write-response-headers socket status headers (not close))))
-        (pathname
-         (cond
-           ((woo.ev.socket:socket-ssl-handle socket)
-            (with-open-file (in body :element-type '(unsigned-byte 8))
-              (let ((size (file-length in)))
-                (unless (getf headers :content-length)
-                  (setf (getf headers :content-length) size))
-                (unless (getf headers :content-type)
-                  (setf (getf headers :content-type) (mimes:mime body)))
-                (wev:with-async-writing (socket :write-cb (and close
-                                                               (lambda (socket)
-                                                                 (wev:close-socket socket))))
-                  (write-response-headers socket status headers (not close))
-                  ;; Future task: Use OpenSSL's SSL_sendfile which uses Kernel TLS.
-                  (wev:write-socket-stream socket in)))))
-           (t
-            (let* ((fd (wsys:open body))
-                   (size #+lispworks (sys:file-size body)
-                         #+(or sbcl ccl) (fd-file-size fd)
-                         #-(or sbcl ccl lispworks) (file-size body)))
-              (unless (getf headers :content-length)
-                (setf (getf headers :content-length) size))
-              (unless (getf headers :content-type)
-                (setf (getf headers :content-type) (mimes:mime body)))
-              (wev:with-async-writing (socket :write-cb (and close
-                                                             (lambda (socket)
-                                                               (wev:close-socket socket))))
-                (write-response-headers socket status headers (not close))
-                (woo.ev.socket:send-static-file socket fd size))))))
-        (list
-         (wev:with-async-writing (socket :write-cb (and close
-                                                        (lambda (socket)
-                                                          (wev:close-socket socket))))
+        (etypecase body
+          (null
+           (wev:with-async-writing (socket :write-cb (and close
+                                                          (lambda (socket)
+                                                            (wev:close-socket socket))))
+             (unless (= status 304)
+               (setf (getf headers :content-length) 0))
+             (write-response-headers socket status headers (not close))))
+          (pathname
            (cond
-             ((getf headers :content-length)
-              (response-headers-bytes socket status headers (not close))
-              (write-socket-crlf socket)
-              (loop for chunk in body
-                    for data = (list-body-chunk-to-octets chunk)
-                    when data
-                      do (wev:write-socket-data socket data)))
+             ((not (uiop:file-exists-p body))
+              (if (uiop:directory-exists-p body)
+                  (send-error-response 403)   ;; directory is cannot serve.
+                  (send-error-response 404))) ;; file not exist.
              (t
-              (cond
-                ((= (http-minor-version http) 1)
-                 ;; Transfer-Encoding: chunked
-                 (response-headers-bytes socket status headers (not close))
-                 (wev:write-socket-data socket #.(string-to-utf-8-bytes "Transfer-Encoding: chunked"))
-                 (write-socket-crlf socket)
-                 (write-socket-crlf socket)
-                 (loop for chunk in body
-                       for data = (list-body-chunk-to-octets chunk)
-                       when (and data (/= 0 (length data)))
-                         do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
-                            (write-socket-crlf socket)
-                            (wev:write-socket-data socket data)
-                            (write-socket-crlf socket))
-                 (wev:write-socket-byte socket #.(char-code #\0))
-                 (write-socket-crlf socket)
-                 (write-socket-crlf socket))
-                (t
-                 ;; calculate Content-Length
-                 (response-headers-bytes socket status headers (not close))
-                 (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
-                 (write-socket-string
-                  socket
-                  (write-to-string (loop for chunk in body
-                                         sum (if (stringp chunk)
-                                                 (utf-8-byte-length chunk)
-                                                 0))))
-                 (write-socket-crlf socket)
-                 (write-socket-crlf socket)
-                 (loop for chunk in body
-                       for data = (list-body-chunk-to-octets chunk)
-                       when data
-                         do (wev:write-socket-data socket data))))))))
-        ((vector (unsigned-byte 8))
-         (wev:with-async-writing (socket :write-cb (and close
-                                                        (lambda (socket)
-                                                          (wev:close-socket socket))))
-           (response-headers-bytes socket status headers (not close))
-           (unless (getf headers :content-length)
-             (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
-             (write-socket-string socket (write-to-string (length body)))
-             (write-socket-crlf socket))
-           (write-socket-crlf socket)
-           (wev:write-socket-data socket body)))))))
+              (handler-case
+                  (cond
+                    ((woo.ev.socket:socket-ssl-handle socket)
+                     (with-open-file (in body :element-type '(unsigned-byte 8))
+                       (let ((size (file-length in)))
+                         (unless (getf headers :content-length)
+                           (setf (getf headers :content-length) size))
+                         (unless (getf headers :content-type)
+                           (setf (getf headers :content-type) (mimes:mime body)))
+                         (wev:with-async-writing (socket :write-cb (and close
+                                                                        (lambda (socket)
+                                                                          (wev:close-socket socket))))
+                           (write-response-headers socket status headers (not close))
+                           ;; Future task: Use OpenSSL's SSL_sendfile which uses Kernel TLS.
+                           (wev:write-socket-stream socket in)))))
+                    (t
+                     (let* ((fd (wsys:open body))
+                            (size (if (< fd 0)
+                                      (progn
+                                        (send-error-response
+                                         (if (= (wsys:errno) wsys:EACCES) 403 500))
+                                        (return-from handle-normal-response))
+                                      (progn #+lispworks (sys:file-size body)
+                                             #+(or sbcl ccl) (fd-file-size fd)
+                                             #-(or sbcl ccl lispworks) (file-size body)))))
+                       (unless (getf headers :content-length)
+                         (setf (getf headers :content-length) size))
+                       (unless (getf headers :content-type)
+                         (setf (getf headers :content-type) (mimes:mime body)))
+                       (wev:with-async-writing (socket :write-cb (and close
+                                                                      (lambda (socket)
+                                                                        (wev:close-socket socket))))
+                         (write-response-headers socket status headers (not close))
+                         (woo.ev.socket:send-static-file socket fd size)))))
+                (file-error (e)
+                  (vom:error (princ-to-string e))
+                  (send-error-response 403))
+                (error (e)
+                  (vom:error (princ-to-string e))
+                  (send-error-response 500))))))
+          (list
+           (wev:with-async-writing (socket :write-cb (and close
+                                                          (lambda (socket)
+                                                            (wev:close-socket socket))))
+             (cond
+               ((getf headers :content-length)
+                (response-headers-bytes socket status headers (not close))
+                (write-socket-crlf socket)
+                (loop for chunk in body
+                      for data = (list-body-chunk-to-octets chunk)
+                      when data
+                        do (wev:write-socket-data socket data)))
+               (t
+                (cond
+                  ((= (http-minor-version http) 1)
+                   ;; Transfer-Encoding: chunked
+                   (response-headers-bytes socket status headers (not close))
+                   (wev:write-socket-data socket #.(string-to-utf-8-bytes "Transfer-Encoding: chunked"))
+                   (write-socket-crlf socket)
+                   (write-socket-crlf socket)
+                   (loop for chunk in body
+                         for data = (list-body-chunk-to-octets chunk)
+                         when (and data (/= 0 (length data)))
+                           do (write-socket-string socket (the simple-string (format nil "~X" (length data))))
+                              (write-socket-crlf socket)
+                              (wev:write-socket-data socket data)
+                              (write-socket-crlf socket))
+                   (wev:write-socket-byte socket #.(char-code #\0))
+                   (write-socket-crlf socket)
+                   (write-socket-crlf socket))
+                  (t
+                   ;; calculate Content-Length
+                   (response-headers-bytes socket status headers (not close))
+                   (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
+                   (write-socket-string
+                    socket
+                    (write-to-string (loop for chunk in body
+                                           sum (if (stringp chunk)
+                                                   (utf-8-byte-length chunk)
+                                                   0))))
+                   (write-socket-crlf socket)
+                   (write-socket-crlf socket)
+                   (loop for chunk in body
+                         for data = (list-body-chunk-to-octets chunk)
+                         when data
+                           do (wev:write-socket-data socket data))))))))
+          ((vector (unsigned-byte 8))
+           (wev:with-async-writing (socket :write-cb (and close
+                                                          (lambda (socket)
+                                                            (wev:close-socket socket))))
+             (response-headers-bytes socket status headers (not close))
+             (unless (getf headers :content-length)
+               (wev:write-socket-data socket #.(string-to-utf-8-bytes "Content-Length: "))
+               (write-socket-string socket (write-to-string (length body)))
+               (write-socket-crlf socket))
+             (write-socket-crlf socket)
+             (wev:write-socket-data socket body))))))))
 
 (defmethod clack.socket:read-callback ((socket woo.ev.socket:socket))
   (wev:socket-data socket))
