@@ -23,6 +23,7 @@
            :ECONNRESET
            :ENOTCONN
            :EAGAIN
+           :EACCES
 
            :fork
            :memset

@@ -23,3 +23,5 @@
 (constant (ECONNRESET "ECONNRESET"))
 (constant (ENOTCONN "ENOTCONN"))
 (constant (EAGAIN "EAGAIN"))
+
+(constant (EACCES "EACCES"))
