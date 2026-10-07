@@ -97,6 +97,12 @@
           do (incf size))
     `(200 (:content-type "text/plain") (,(princ-to-string size)))))
 
+(defvar *raw-body* nil)
+
+(defun invalid-response-app (env)
+  (setf *raw-body* (getf env :raw-body))
+  :invalid-response)
+
 (deftest body-limit-tests
   (let ((clack.test:*clack-test-handler* :woo))
     (with-body-limits
@@ -143,4 +149,15 @@
             (ok (wait-until (lambda () (new-body-files before)))
                 "The body is buffered in a file"))
           (ok (wait-until (lambda () (null (new-body-files before))))
-              "The file is deleted when the connection closes"))))))
+              "The file is deleted when the connection closes")))
+
+      (let ((clack.test:*enable-debug* nil))
+        (testing-app "A response Woo fails to handle"
+            #'invalid-response-app
+          (setf *raw-body* nil)
+          (ok (eql (handler-case (nth-value 1 (dex:post (localhost) :content "body"))
+                     (dex:http-request-failed (e) (dex:response-status e)))
+                   500)
+              "Woo answers 500")
+          (ok (wait-until (lambda () (and *raw-body* (not (open-stream-p *raw-body*)))))
+              "The body is closed"))))))

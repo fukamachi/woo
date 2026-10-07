@@ -225,32 +225,35 @@
                              (write-to-buffer body-buffer (subseq data start end) 0 (- end start))
                              (write-to-buffer body-buffer data start end)))
                        :finish-callback
-                       (flet ((main (env raw-body)
-                                (let ((res (if *debug*
-                                               (funcall *app* env)
-                                               (if-let (res (handler-case (funcall *app* env)
-                                                              (error (error)
-                                                                (vom:error (princ-to-string error))
-                                                                nil)))
-                                                 res
-                                                 '(500 nil nil)))))
-                                  (prog1 (handle-response http socket res)
-                                    (when (listp res)
-                                      (close raw-body))))))
+                       (flet ((main (env)
+                                (if *debug*
+                                    (funcall *app* env)
+                                    (if-let (res (handler-case (funcall *app* env)
+                                                   (error (error)
+                                                     (vom:error (princ-to-string error))
+                                                     nil)))
+                                      res
+                                      '(500 nil nil)))))
                          (lambda ()
                            (block result
-                             (let ((raw-body (finalize-buffer body-buffer)))
+                             (let ((raw-body (finalize-buffer body-buffer))
+                                   (delayed nil))
                                (delete-stream-file raw-body)
                                (setq body-buffer (make-smart-buffer))
-                               (handler-bind
-                                   ((error ;; handle errors inside woo
-                                      (lambda (e)
-                                        (unless *debug*
-                                          (vom:crit (princ-to-string e))
-                                          (return-from result (handle-response http socket '(500 nil nil)))))))
-                                 (let ((env (nconc (list :raw-body raw-body)
-                                                   (handle-request http socket))))
-                                   (main env raw-body)))))))))))
+                               (unwind-protect
+                                    (handler-bind
+                                        ((error ;; handle errors inside woo
+                                           (lambda (e)
+                                             (unless *debug*
+                                               (vom:crit (princ-to-string e))
+                                               (return-from result (handle-response http socket '(500 nil nil)))))))
+                                      (let ((env (nconc (list :raw-body raw-body)
+                                                        (handle-request http socket))))
+                                        (let ((res (main env)))
+                                          (prog1 (handle-response http socket res)
+                                            (setq delayed (functionp res))))))
+                                 (unless delayed
+                                   (close raw-body)))))))))))
 
 (defun stop (server)
   (wev:close-tcp-server server))
