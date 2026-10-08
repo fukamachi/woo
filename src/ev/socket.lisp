@@ -48,6 +48,7 @@
            :socket-remote-port
            :socket-data
            :socket-read-cb
+           :socket-close-cb
            :socket-open-p
            :socket-ssl-handle
            :check-socket-open
@@ -76,6 +77,7 @@
   (tcp-read-cb nil :type symbol)
   (read-cb nil :type (or null function))
   (write-cb nil :type (or null function))
+  (close-cb nil :type (or null function))
   (ssl-handle nil :type (or null cffi:foreign-pointer))
   (open-p t :type boolean)
 
@@ -125,6 +127,10 @@
 (defun close-socket (socket)
   (when (socket-open-p socket)
     (setf (socket-open-p socket) nil)
+    (let ((close-cb (socket-close-cb socket)))
+      (when close-cb
+        (setf (socket-close-cb socket) nil)
+        (funcall close-cb socket)))
     (free-watchers socket)
     (let ((fd (socket-fd socket)))
       (wsys:close fd)
